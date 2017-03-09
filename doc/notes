@@ -47,8 +47,6 @@
 
               (output)  params[2].memref.buffer = p               where p is the prime
 
-              (output)  params[3].value.a = key_id_a
-
               (input)   params[3].value.b = key_length
 
 
@@ -61,17 +59,21 @@
 
               (input)  params[2].memref.buffer = p                               where p is the prime
 
-              (output)  params[3].value.a = key_id_b
+              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when input key_length should be set in the first four octets. when output
+																				 the key_id_b should set all 8 octets
 
-              (input)   params[3].value.b = key_length
 
 
          - COMPLETE_DH_CMD ( 0x00000003 ) :
 
               (output)  params[0].memref.buffer = gy              where 'gy' is the public shared secrete key provided by remote end (g^y mod p)
 
-              (input)  params[1].value.a = key_id_a
+              (input)  params[1].memref.buffer = key_id_a         size of the buffer should be 8 octects
 
-              (input)  params[1].value.b = SUCCESS or FAIL        where SUCCESS and FAIL are macros with value 1 and 0 respectively
+              (input)  params[2].value.b = SUCCESS or FAIL        where SUCCESS and FAIL are macros with value 1 and 0 respectively
 
 # sessionContext would be NULL. Since the TA design is one session per instance there wouldn't be any conflict of sessionContext so there is no need for session identifier.
+
+# Maximum Key length supported is 2048. Generator (g) should always be 4 bytes(octets) long.
+
+#key id is 8 bytes long

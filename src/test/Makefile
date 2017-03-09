@@ -20,6 +20,6 @@ clean:
 cp:
 	cp test_eks /home/andro/Open-TEE/gcc-debug
 
-eprt:
-	export LD_LIBRARY_PATH=/home/andro/Open-TEE/gcc-debug
+export:
+	sh export LD_LIBRARY_PATH=/home/andro/Open-TEE/gcc-debug
 	

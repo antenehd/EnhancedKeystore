@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "tee_client_api.h"
 #include "tee_logging.h"
+#include <string.h>
 
 #define INITIATE_DH_CMD    0x00000001
 #define RESPOND_DH_CMD     0x00000002
@@ -14,15 +15,18 @@
 
 static const TEEC_UUID uuid = {0x316cd877, 0xebae, 0x59d2, {0xa7,0x66,0x6c,0xce,0x17,0xe1,0xd4,0x71}};
 
-#define  gx_size  8
-#define  gy_size  8
+#define  key_len  2048 
+#define  gx_size  ( key_len / 8 )
+#define  gy_size  ( key_len / 8 )
 #define  g_size   4
-#define  p_size   256
+#define  p_size   ( key_len / 8 )
 
-uint8_t gx_buffer[8] = {0};
+uint8_t gx_buffer[ gx_size ] = {0};
 uint8_t gy_buffer[gy_size] = {0};
 uint8_t g_buffer[g_size] = {0};
 uint8_t p_buffer[p_size] = {0};
+uint32_t key_len_id[8] = {0};
+uint32_t key_len_id_size = 8;
 
 /*only for values and registered shared memory*/
 static void fill_operation_params(TEEC_Operation *operation, uint32_t start, uint32_t parm_type, TEEC_Parameter params[4])
@@ -54,9 +58,13 @@ static int reg_shared_memory(TEEC_Context *context, TEEC_SharedMemory *reg_shm, 
 
 static int test_eks()
 {
+
+	int i, j;
+
 	TEEC_Context context;
-	TEEC_Session session;
+	TEEC_Session session, session_2;
 	TEEC_Operation operation = {0};
+	TEEC_Operation operation_2 = {0};
 	TEEC_Result ret;
 	//TEEC_SharedMemory reg_inout_mem = {0}, alloc_inout_mem = {0};
 	TEEC_SharedMemory gx = {0};
@@ -65,11 +73,12 @@ static int test_eks()
 	TEEC_SharedMemory p_out = {0};	
 	TEEC_SharedMemory g_in = {0};
 	TEEC_SharedMemory p_in = {0};
+	TEEC_SharedMemory k_len_id_inout = {0};
 	TEEC_Value init_val = {0};
-	uint32_t key_len = 256;
-	uint32_t key_id_a = 5;
-	uint32_t key_id_b;
+	uint32_t key_length = key_len;
+	
 	TEEC_Parameter params[4] = {0};
+	//TEEC_Parameter params_2[4] = {0};
 	uint32_t return_origin;
 	uint32_t connection_method = TEEC_LOGIN_PUBLIC;
 
@@ -101,6 +110,7 @@ static int test_eks()
 	reg_shared_memory(&context, &g_out, g_buffer, g_size, TEEC_MEM_OUTPUT );
 	reg_shared_memory(&context, &p_out, p_buffer, p_size, TEEC_MEM_OUTPUT );
 	init_val.b = key_len;	
+	
 	/*set operation parameter for initiate DH*/	
 	params[0].memref.parent = &gx;
 	params[0].memref.size = gx_size;
@@ -110,23 +120,113 @@ static int test_eks()
 	params[2].memref.size = p_size;
 	params[3].value.b = key_len;
 	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_VALUE_INOUT), params);
+	
 	/*send init dh command*/
 	ret = TEEC_InvokeCommand(&session, INITIATE_DH_CMD, &operation, &return_origin);
 	if (ret != TEEC_SUCCESS) {
 		PRIn("TEEC_InvokeCommand for INITIATE_DH_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
-	key_id_a = operation.params[3].value.a;
-	PRIn("TEST : value of g 0x%02x%02x%02x%02x and value of p 0x%x%x%x%x%x%x%x%x and value of key_id %u \n", g_buffer[0], g_buffer[1], g_buffer[2], g_buffer[3], p_buffer[0], p_buffer[1], p_buffer[2], p_buffer[3], p_buffer[4], p_buffer[5], p_buffer[6], p_buffer[7], key_id_a);
+
+	/*check generator value*/
+	PRIn( "TEST: GENERATOR_VALUE = %02x%02x%02x%02x\n", g_buffer[0], g_buffer[1], g_buffer[2], g_buffer[3] );	
+	/*check for prime number*/
+	PRI( "TEST: PRIME_NUMBER = {\n");
+	j = 0;
+	for( i=0; i < p_size; i++){
+
 		
-	/**/
-	reg_shared_memory(&context, &gy, gy_buffer, gy_size, TEEC_MEM_INPUT );
+		PRI( " %02x,", p_buffer[ i ] );
+		
+		if( 20 == j ){
+			
+	 		PRI( "\n" );
+			j = 0;
+		}
+
+		j++;
+	}	
+	PRIn( "}\n");	
+	/*check for public value*/
+	PRI( "TEST: PUBLIC_NUMBER = {\n");
+	j = 0;
+	for( i=0; i < gx_size; i++ ){
+
+		
+		PRI( " %02x,", gx_buffer[ i ] );
+		
+		if( 20 == j ){
+			
+	 		PRI( "\n" );
+			j = 0;
+		}
+		j++;
+	}	
+	PRIn( "}" );
+
+	
+	/************************ APPLICATION B *****************************************************************************************/
+
+	/*Prepare memory for public shared key of application b*/
+
+
+	/* Open session */
+	PRIn("************************** APPLICATION B ******************************************************************************** \n");
+	PRI("Openning session for RESPOND_DH_CMD: ");
+	ret = TEEC_OpenSession( &context, &session_2, &uuid, connection_method, NULL, &operation_2, &return_origin);
+
+	if( ret != TEE_SUCCESS ){
+
+		PRIn("TEEC_OpenSession FOR APPLICATION B failed: 0x%x", ret);
+		return -1;
+	}
+	PRIn("opened");
+
+	/*prepare memory for initiate DH*/
+	reg_shared_memory(&context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT  );
+	reg_shared_memory(&context, &g_out, g_buffer, g_size, TEEC_MEM_INPUT );
+	reg_shared_memory(&context, &p_out, p_buffer, p_size, TEEC_MEM_INPUT );
+	reg_shared_memory(&context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT );
+	
+	/*set operation parameter for respond DH*/	
+	params[0].memref.parent = &gx;
+	params[0].memref.size = gx_size;
+	params[1].memref.parent = &g_out;
+	params[1].memref.size = g_size;
+	params[2].memref.parent = &p_out;
+	params[2].memref.size = p_size;
+	params[3].memref.parent = &k_len_id_inout;
+	params[3].memref.size =  key_len_id_size;
+	memcpy( key_len_id, &key_length, 4 );
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE), params );	
+
 	/*send respond dh command*/
-	ret = TEEC_InvokeCommand(&session, RESPOND_DH_CMD, &operation, &return_origin);
+	ret = TEEC_InvokeCommand(&session_2, RESPOND_DH_CMD, &operation, &return_origin);
 	if (ret != TEEC_SUCCESS) {
 		PRIn("TEEC_InvokeCommand for RESPOND_DH_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
+
+	/*Check returned key id*/
+	PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
+	/*check for public value*/
+	PRI( "TEST: PUBLIC_NUMBER gy = {\n");
+	j = 0;
+	for( i=0; i < gx_size; i++ ){
+
+		
+		PRI( " %02x,", gx_buffer[ i ] );
+		
+		if( 20 == j ){
+			
+	 		PRI( "\n" );
+			j = 0;
+		}
+		j++;
+	}	
+	PRIn( "}" )
+
+	PRIn("************************** END OF APPLICATION B ******************************************************************************** ");
 
 	/*send complete dh command*/
 	ret = TEEC_InvokeCommand(&session, COMPLETE_DH_CMD, &operation, &return_origin);

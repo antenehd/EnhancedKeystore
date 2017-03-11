@@ -49,10 +49,6 @@ SET_TA_PROPERTIES(
 /*Length of the sysmmetric secret key(in bits) to be generated*/
 uint32_t key_length;
 
-/*transient object to store DH parameters temporarly*/
-TEE_ObjectHandle trs_key_obj_hdl;
-TEE_ObjectHandle trs_secret_key_obj_hdl;
-
 /*Entry point for the TA*/
 TEE_Result TA_EXPORT TA_CreateEntryPoint(void){
 	
@@ -122,27 +118,27 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 	/* Check parameter type if command is COMPLETE_DH_CMD*/
 	if( COMPLETE_DH_CMD == command_id ){
 
-		if ( TEE_PARAM_TYPE_MEMREF_INOUT != TEE_PARAM_TYPE_GET(paramTypes, 0) ){
+		if ( TEE_PARAM_TYPE_MEMREF_INPUT != TEE_PARAM_TYPE_GET( paramTypes, 0 ) ){
 
-			OT_LOG(LOG_ERR, "For command COMPLETE_DH_CMD first parameter type is incorrect");
+			OT_LOG( LOG_ERR, "For command COMPLETE_DH_CMD first parameter type is incorrect" );
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET(paramTypes, 1) ){
+		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET( paramTypes, 1 ) ){
 
-			OT_LOG(LOG_ERR, "For command COMPLETE_DH_CMD second parameter type is incorrect");
+			OT_LOG( LOG_ERR, "For command COMPLETE_DH_CMD second parameter type is incorrect" );
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET(paramTypes, 2) ){
+		if ( TEE_PARAM_TYPE_NONE != TEE_PARAM_TYPE_GET(paramTypes, 2 ) ){
 
-			OT_LOG(LOG_ERR, "For command COMPLETE_DH_CMD third parameter type is incorrect");
+			OT_LOG( LOG_ERR, "For command COMPLETE_DH_CMD third parameter type is incorrect" );
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_INOUT != TEE_PARAM_TYPE_GET(paramTypes, 3) ){
+		if ( TEE_PARAM_TYPE_NONE != TEE_PARAM_TYPE_GET(paramTypes, 3 ) ){
 
-			OT_LOG(LOG_ERR, "For command COMPLETE_DH_CMD forth parameter type is incorrect");
+			OT_LOG( LOG_ERR, "For command COMPLETE_DH_CMD forth parameter type is incorrect" );
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 	}
@@ -249,7 +245,7 @@ TEE_Result creat_prs_obj( uint8_t key_id[8], TEE_ObjectHandle attrbs_obj ){
 }
 
 /*Generate shared secret*/
-TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uint32_t key_length, uint8_t * public_value_received, uint32_t public_received_len){
+TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uint32_t key_length, uint8_t * public_value_received, uint32_t public_received_len, TEE_ObjectHandle trs_key_obj_hdl  ){
 
 	TEE_Result ret;
 	TEE_OperationHandle sk_generation;
@@ -271,7 +267,7 @@ TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uin
 	if( TEE_SUCCESS != ret )
 		goto error;
 
-	/*populate trinsien object with TEE_ATTR_SECRET_VALUE attribute*/
+	/*populate transient object with TEE_ATTR_SECRET_VALUE attribute*/
 	TEE_InitRefAttribute( &attr_secret_val, TEE_ATTR_SECRET_VALUE, shared_key, shared_key_len );
 	ret = TEE_PopulateTransientObject( *trs_secret_key_obj_hdl, &attr_secret_val, 1 );
 	if( TEE_SUCCESS != ret )
@@ -333,6 +329,10 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	uint8_t *prime;
 	uint32_t prime_size;
 	uint8_t key_id[8];
+
+	/*transient object to store DH parameters temporarly*/
+	TEE_ObjectHandle trs_key_obj_hdl;
+	TEE_ObjectHandle trs_secret_key_obj_hdl;
 
 	uint8_t prime_received[256] = { 0 };
 	uint8_t public_value_received[256] = {0};
@@ -437,14 +437,14 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		TEE_MemMove( params[0].memref.buffer,  public_value, pv_len );
 
 		/*Generate shared secret key*/
-		ret = generate_shared_secret( &trs_secret_key_obj_hdl, key_length, public_value_received, public_received_len);
+		ret = generate_shared_secret( &trs_secret_key_obj_hdl, key_length, public_value_received, public_received_len, trs_key_obj_hdl );
 		if( TEE_SUCCESS != ret )
-			goto error;	
+			goto error;
 
 		/*Create a persistent object and store the shared secret key*/
 		ret = creat_prs_obj( key_id, trs_secret_key_obj_hdl );
 		if( TEE_SUCCESS != ret )
-			goto error;	
+			goto error;
 
 		/*set key_id into shared memory*/
 		TEE_MemMove( params[3].memref.buffer, key_id, 8 );
@@ -452,7 +452,33 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	}
 	else if(  COMPLETE_DH_CMD == commandID ){
 
-			OT_LOG(LOG_INFO, "COMPLETE_DH_CMD command invoked for EKS_TA");	
+		OT_LOG(LOG_INFO, "COMPLETE_DH_CMD command invoked for EKS_TA");	
+		
+		/*Validate parameter type*/
+		ret = validate_param_type( paramTypes,  COMPLETE_DH_CMD );
+		if( TEE_SUCCESS != ret )
+			goto error;			
+
+		/*Retrieve public value*/
+		public_received_len = params[0].memref.size;
+		TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );
+
+		/*Test: show received public value*/
+		OT_LOG(LOG_INFO, "TEST: RECEIVED PUBLIC_VALUE = %02x %02x %02x %02x %02x %02x %02x %02x\n", public_value_received[0], public_value_received[1],public_value_received[2],public_value_received[124],public_value_received[125],public_value_received[253],public_value_received[254],public_value_received[255]);
+
+		/*Generate shared secret key*/
+		ret = generate_shared_secret( &trs_secret_key_obj_hdl, key_length, public_value_received, public_received_len, trs_key_obj_hdl );
+		if( TEE_SUCCESS != ret )
+			goto error;
+
+		/*Create a persistent object and store the shared secret key*/
+		ret = creat_prs_obj( key_id, trs_secret_key_obj_hdl );
+		if( TEE_SUCCESS != ret )
+			goto error;
+
+		/*set key_id into shared memory*/
+		TEE_MemMove( params[1].memref.buffer, key_id, 8 );
+
 	}
 	else{
 

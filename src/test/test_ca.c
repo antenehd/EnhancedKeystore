@@ -74,6 +74,7 @@ static int test_eks()
 	TEEC_SharedMemory g_in = {0};
 	TEEC_SharedMemory p_in = {0};
 	TEEC_SharedMemory k_len_id_inout = {0};
+	TEEC_SharedMemory key_id = {0};
 	TEEC_Value init_val = {0};
 	uint32_t key_length = key_len;
 	
@@ -213,7 +214,6 @@ static int test_eks()
 	PRI( "TEST: PUBLIC_NUMBER gy = {\n");
 	j = 0;
 	for( i=0; i < gx_size; i++ ){
-
 		
 		PRI( " %02x,", gx_buffer[ i ] );
 		
@@ -228,12 +228,28 @@ static int test_eks()
 
 	PRIn("************************** END OF APPLICATION B ******************************************************************************** ");
 
+	/*prepare memory for initiate DH*/
+	reg_shared_memory(&context, &gx, gx_buffer, gx_size, TEEC_MEM_INPUT  );
+	reg_shared_memory(&context, &key_id, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT );
+
+	/*set operation parameter for complete dh*/	
+	params[0].memref.parent = &gx;
+	params[0].memref.size = gx_size;
+	memset( key_len_id, 0, key_len_id_size );
+	params[1].memref.parent = &key_id;
+	params[1].memref.size =  key_len_id_size;
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_NONE, TEEC_NONE ), params );
+	
 	/*send complete dh command*/
-	ret = TEEC_InvokeCommand(&session, COMPLETE_DH_CMD, &operation, &return_origin);
+	ret = TEEC_InvokeCommand( &session, COMPLETE_DH_CMD, &operation, &return_origin );
 	if (ret != TEEC_SUCCESS) {
 		PRIn("TEEC_InvokeCommand for COMPLETE_DH_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
+
+	/*Check returned key id*/
+	PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
+	/*check for public value*/
 
 	return 0;
 }

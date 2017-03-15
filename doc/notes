@@ -1,0 +1,77 @@
+
+# UUID of the TA:
+
+  - is version 5 based on 'TEE Internal Core API Specification – Public Release v1.1.2' documents' 'Table: 3-1'. And out of the name spaces defined in RFC 4122 Appendix C
+    'URL' namespace is selected simply it is enougn to uniquely identify the TA.
+ 
+  -
+    /*From RFC 4122,  Name space id for URL in name string format is */
+    uuid_t NameSpace_URL = { /* 6ba7b811-9dad-11d1-80b4-00c04fd430c8 */
+        0x6ba7b811,
+        0x9dad,
+        0x11d1,
+        0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8
+    }
+ 
+  - name 'enhancedkeystore.ta.tee.cs.aalto.fi' is assigned by me.
+  - MD5 hashing used. 
+      
+          md5(6ba7b8119dad11d180b400c04fd430c8+hexof(enhancedkeystore.ta.tee.cs.aalto.fi))
+          hexof(enhancedkeystore.ta.tee.cs.aalto.fi) = 656e68616e6365646b657973746f72652e74612e7465652e63732e61616c746f2e6669
+          md5(6ba7b8119dad11d180b400c04fd430c8656e68616e6365646b657973746f72652e74612e7465652e63732e61616c746f2e6669) = 316cd877ebae59d267666cce17e1d471
+
+    website used for hashing is 'http://www.fileformat.info/tool/hash.htm'
+
+  - follow section 4.3 of RFC 4122 to construct the UUID. the resulting UUID of the TA would be
+     {
+       time_low = 316cd877
+       time_mid = ebae
+       time_hi_and_version = 59d2
+       clockSeqAndNode = a7666cce17e1d471
+     }
+    
+
+# TA is Multi Instance Trusted Application. This means every time a client application opens a new session to the TA a new instance of the TA is created.
+  This enables easy global variable managment since every session will have its own instance that means every time a session opens a sparate global variable is initialized.
+
+
+# Parameter design for invoke command
+
+   when command is :
+
+         - INITIATE_DH_CMD( 0x00000001 ):
+
+              (output)  params[0].memref.buffer = gx              where 'gx' is the public shared secrete key generated (g^x mod p)
+               
+              (output)  params[1].memref.buffer = g               where g is the generator
+
+              (output)  params[2].memref.buffer = p               where p is the prime
+
+              (input)   params[3].value.b = key_length
+
+
+         - RESPOND_DH_CMD ( 0x00000002 ) :
+
+              (inout)  params[0].memref.buffer = gx(input) & gy(output)          where 'gx' is the public shared secrete key provided by remote end (g^x mod p) and 'gy' is the response public
+                                                                                 shared key generated (g^y mod p)
+               
+              (input)  params[1].memref.buffer = g                               where g is the generator
+
+              (input)  params[2].memref.buffer = p                               where p is the prime
+
+              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when input key_length should be set in the first four octets. when output
+																				 the key_id_b should set all 8 octets
+
+
+
+         - COMPLETE_DH_CMD ( 0x00000003 ) :
+
+              (input)  params[0].memref.buffer = gy              where 'gy' is the public shared secrete key provided by remote end (g^y mod p)
+
+              (output)  params[1].memref.buffer = key_id_a        size of the buffer should be 8 octects
+
+# sessionContext would be NULL. Since the TA design is one session per instance there wouldn't be any conflict of sessionContext so there is no need for session identifier.
+
+# Maximum Key length supported is 2048. Generator (g) should always be 4 bytes(octets) long.
+
+#key id is 8 bytes long

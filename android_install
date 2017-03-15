@@ -1,0 +1,68 @@
+
+# Install opentee on adroid device: Follow the instruction found https://open-tee.github.io/android/
+
+   - when excuting command 'lunch' selecting 'aosp_arm-eng' worked on 'LG D855, android 5.0' 
+
+# Install 'android ndk'
+
+# The open-tee libraries in the folder 'jni' are compiled for 'aosp_arm-eng'. And they are copied from '/android_source/out/target/product/generic/system/lib'(which is the default build target directory).
+  the 'android_source' is the directory  where the android source file is stored. the '/android_source/out/' direcotry is where the build files are stored by default when running the 'make ...' command
+   specified in the above link, but the build could be stored in another directory by setting $OUT variable, so the libraries should be copied from there.
+
+  If the open-tee is built for other arichtictures other than 'aosp_arm-eng', the libraries in 'jni' directory should be replaced with the new one.
+
+# then build the 'enhanced key store(eks) library' using 'ndk-build' 
+
+   - If the open-tee is build for different architecture other than the above mentioned ('aosp_arm-eng'), remember to edit the APP_ABI value found in Application.mk file with the right architecture.
+     Also change LOCAL_C_INCLUDES in file 'Android.mk' to the appropraite value based on where the open-tee source file is stored.
+ 
+   - Open terminal, then navigate to the 'src' directory and run ndk-build. make sure the system can find ndk-build by setting its path in the $PATH variable. 
+
+          $ ndk-build
+
+   - after this, copy the resulting eks library 'libeks_ta.so' to the android deviced '/system/lib/ta' drectory. The 'libeks_ta.so' is locatedd in '/src/lib/(architect)/' directory. replace '(architect)'
+     with the correct device architecter used. 
+     To copy use 'adb' command. (the device should be rooted for this to work)
+ 
+         $adb push libeks_ta_so /system/lib/ta
+
+    - If the command fails b/c the destination is write protected, try runnin 'adb remount' before running the above command.
+
+# For testing. Build the excutable found in the directory 'src/test'. The process is almost as the above except the excutable should be pushed to the directory /system/bin on the target device
+
+          $adb push test_eks /system/bin
+
+# Use 'adb shell' to get into the device system and test it. (opentee-engine must be running, just to make sure it is running include 'opentee-engine' command)
+ 
+          $adb shell
+	  #opentee-engine
+          #/system/bin/test_eks
+  
+    the result should be something like the following 
+
+Openning session for RESPOND_DH_CMD: opened
+Registering shared memory: registered
+Registering shared memory: registered
+Registering shared memory: registered
+Registering shared memory: registered
+TEST: KEY_ID = 58c6e9902bb000000000000
+
+TEST: PUBLIC_NUMBER gy = {
+ 4c, f5, 61, d6, 21, 31, ad, df, c7, 5e, 68, 16, 27, 66, de, 68, 7c, 92, 50, 3e, d6,
+ c0, f9, ac, 08, 45, 04, 58, c1, 65, 98, 03, fa, 3b, ea, 44, 08, 98, dd, 1e, 2e,
+ 0c, 92, 28, 16, e0, e6, 47, 87, af, 70, ba, f4, be, ea, aa, 36, ee, 3d, 1f, dd,
+ 7d, a5, d9, 95, 17, af, 6b, ce, fe, 25, 18, 11, a3, 30, 06, 0e, 22, 96, fa, 9d,
+ 0f, 2f, fa, 26, ab, 71, 04, 6a, 47, 49, fe, 01, 3b, 79, 02, 13, ff, 11, 6c, c5,
+ 1b, b3, 39, 9c, 38, 4c, ad, 63, d8, 36, b1, f2, 01, 2a, 77, cd, b5, fa, da, ec,
+ ce, 06, e7, 2d, 07, c3, f6, af, 85, 73, 14, a7, b8, 2f, 8a, 0f, 39, d6, f7, 22,
+ 53, c9, 40, 7e, 13, af, 23, fb, cd, 94, 9d, 50, 06, 0b, 30, 9d, 1e, fe, e0, d4,
+ 71, 13, 37, 6f, e6, 00, 1d, aa, d2, 1d, d2, e3, 7d, 45, 25, 76, 68, 57, ac, c8,
+ 11, dd, 2d, 76, a7, 55, bf, e7, 78, 69, 51, 65, 2e, 8c, 6e, 78, 2c, 27, 59, 35,
+ 16, e0, 7a, 4a, 92, 70, 9f, 36, 03, 15, 77, 7d, be, b4, 40, 7c, 84, c3, d9, 2c,
+ 44, b4, 4f, 8d, a3, e8, cc, ef, c0, 14, fe, d2, 61, 44, 5c, ee, af, c9, 45, c8,
+ d4, 89, fc, 5b, 14, 42, 83, 49, 7c, 45, b3, 07, c3, 09, 6f,}
+************************** END OF APPLICATION B ******************************************************************************** 
+Registering shared memory: registered
+Registering shared memory: registered
+TEST: KEY_ID = 58c6e9902d3000000000000
+

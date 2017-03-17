@@ -13,24 +13,15 @@
 #define PRIn(str, ...) printf(str "\n", ##__VA_ARGS__);
 #define PRI(str, ...) printf(str, ##__VA_ARGS__);
 
-#define  MAX_BUFF_SIZE 256
-#define  key_len_256   256
-#define  gx_size_256   ( key_len_256 / 8 )
-#define  p_size_256    ( key_len_256 / 8 )
-#define  key_len_512   512
-#define  gx_size_512   ( key_len_512 / 8 )
-#define  p_size_512    ( key_len_512 / 8 )
-#define  key_len_1024  1024
-#define  gx_size_1024  ( key_len_1024 / 8 )
-#define  p_size_1024   ( key_len_1024 / 8 )
-#define  key_len_2048  2048
-#define  gx_size_2048  ( key_len_2048 / 8 )
-#define  p_size_2048   ( key_len_2048 / 8 )
+#define  BUFF_SIZE 256
 #define  g_size   4
 
-uint8_t gx_buffer[MAX_BUFF_SIZE ] = {0};
-uint8_t g_buffer[ MAX_BUFF_SIZE ] = {0};
-uint8_t p_buffer[ MAX_BUFF_SIZE ] = {0};
+#define  KEY_LEN_256	256
+#define  KEY_LEN_128	128
+
+uint8_t gx_buffer[ BUFF_SIZE ] = {0};
+uint8_t g_buffer[ BUFF_SIZE ] = {0};
+uint8_t p_buffer[ BUFF_SIZE ] = {0};
 uint32_t key_len_id[8] = {0};
 uint32_t key_len_id_size = 8;
 
@@ -77,37 +68,15 @@ int send_init( uint32_t key_size, TEEC_Session *session, TEEC_Context *context, 
 	TEEC_Value init_val = {0};
 	TEEC_Parameter params[4] = {0};
 
-	uint32_t gx_size;
-	uint32_t p_size;
+	uint32_t gx_size = BUFF_SIZE;
+	uint32_t p_size = BUFF_SIZE;
 
-	/**/
-	if( 2048 == key_size ){
-
-		gx_size = gx_size_2048;
-		p_size = p_size_2048;
-	}
-	else if( 1024 == key_size ){
-
-		gx_size = gx_size_1024;
-		p_size = p_size_1024;
-	}
-	else if( 512 == key_size ){
-
-		gx_size = gx_size_512;
-		p_size = p_size_512;
-	}
-	else if( 256 == key_size ){
-
-		gx_size = gx_size_256;
-		p_size = p_size_256;
-	}
-	else
-		return -1;
+	
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT );
 	reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_OUTPUT );
 	reg_shared_memory( context, &p_out, p_buffer, p_size, TEEC_MEM_OUTPUT );
-	init_val.b = key_len_2048;	
+	init_val.b = key_size;	
 	
 	/*set operation parameter for initiate DH*/	
 	params[0].memref.parent = &gx;
@@ -142,30 +111,8 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	TEEC_SharedMemory key_id = {0};
 	TEEC_Parameter params[4] = {0};
 
-	uint32_t gx_size;
-	uint32_t p_size;
-
-	/**/
-	if( 2048 == key_size ){
-
-		gx_size = gx_size_2048;
-		p_size = p_size_2048;
-	}
-	else if( 1024 == key_size ){
-
-		gx_size = gx_size_1024;
-		p_size = p_size_1024;
-	}
-	else if( 512 == key_size ){
-
-		gx_size = gx_size_512;
-		p_size = p_size_512;
-	}
-	else if( 256 == key_size ){
-
-		gx_size = gx_size_256;
-		p_size = p_size_256;
-	}
+	uint32_t gx_size = BUFF_SIZE;
+	uint32_t p_size = BUFF_SIZE;
 
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT  );
@@ -205,25 +152,7 @@ int send_complet( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	TEEC_SharedMemory key_id = {0};
 	TEEC_Parameter params[4] = {0};
 
-	uint32_t gx_size;
-
-	/**/
-	if( 2048 == key_size ){
-
-		gx_size = gx_size_2048;
-	}
-	else if( 1024 == key_size ){
-
-		gx_size = gx_size_1024;
-	}
-	else if( 512 == key_size ){
-
-		gx_size = gx_size_512;
-	}
-	else if( 256 == key_size ){
-
-		gx_size = gx_size_256;
-	}
+	uint32_t gx_size = BUFF_SIZE;
 
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_INPUT  );
@@ -249,32 +178,10 @@ void check_init_ret( uint32_t key_size ){
 
 	int i, j;
 
-	uint32_t gx_size;
-	uint32_t p_size;
+	uint32_t gx_size = BUFF_SIZE;
+	uint32_t p_size = BUFF_SIZE;
 
-	/**/
-	if( 2048 == key_size ){
-
-		gx_size = gx_size_2048;
-		p_size = p_size_2048;
-	}
-	else if( 1024 == key_size ){
-
-		gx_size = gx_size_1024;
-		p_size = p_size_1024;
-	}
-	else if( 512 == key_size ){
-
-		gx_size = gx_size_512;
-		p_size = p_size_512;
-	}
-	else if( 256 == key_size ){
-
-		gx_size = gx_size_256;
-		p_size = p_size_256;
-	}
-	else
-		return;
+	
 	/*check generator value*/
 	PRIn( "TEST: GENERATOR_VALUE = %02x%02x%02x%02x\n", g_buffer[0], g_buffer[1], g_buffer[2], g_buffer[3] );	
 	/*check for prime number*/
@@ -316,27 +223,7 @@ void check_ret_resp( uint32_t key_size ){
 
 	int i, j;
 
-	uint32_t gx_size;
-
-	/**/
-	if( 2048 == key_size ){
-
-		gx_size = gx_size_2048;
-	}
-	else if( 1024 == key_size ){
-
-		gx_size = gx_size_1024;
-	}
-	else if( 512 == key_size ){
-
-		gx_size = gx_size_512;
-	}
-	else if( 256 == key_size ){
-
-		gx_size = gx_size_256;
-	}
-	else
-		return;
+	uint32_t gx_size = BUFF_SIZE;
 	
 	/*Check returned key id*/
 	PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
@@ -362,7 +249,7 @@ static int test_eks()
 
 	int i;
 
-	uint32_t key_size[ 4 ] = { key_len_256, key_len_512, key_len_1024, key_len_2048 }; 
+	uint32_t key_size= KEY_LEN_256; 
 
 	TEEC_Context context;
 	TEEC_Session session, session_2;
@@ -385,78 +272,72 @@ static int test_eks()
 		PRIn("initialized");
 	}
 
-	/************************     TEST FOR EACH KEY_SIZE ********************************************************/
-
-	for( i=0; i < 4; i++ ){
 	
-		PRIn("\n********************************* START TEST FOR KEY_SIZE = %u ***************************************\n", key_size[ i ]);
+	PRIn("\n********************************* START TEST FOR KEY_SIZE = %u ***************************************\n", key_size );
 
-		/* Open session */
-		PRI("Openning session: ");
-		ret = TEEC_OpenSession( &context, &session, &uuid, connection_method, NULL, &operation, &return_origin);
+	/* Open session */
+	PRI("Openning session: ");
+	ret = TEEC_OpenSession( &context, &session, &uuid, connection_method, NULL, &operation, &return_origin);
 
-		if( ret != TEE_SUCCESS ){
+	if( ret != TEE_SUCCESS ){
 
-			PRIn("TEEC_OpenSession failed: 0x%x", ret);
-			return -1;
-		}
-		PRIn("opened");
-
-		/*Send init command*/
-		if ( -1 == send_init( key_size[ i ], &session, &context, &return_origin ) ){
-		
-			PRIn( "Failed to send init command " );
-			return -1;
-		}
-
-		/*check init return*/
-		check_init_ret( key_size[ i ] );
-		
-		/************************ APPLICATION B *****************************************************************************************/
-
-		/* Open session */
-		PRIn("************************** APPLICATION B ******************************************************************************** \n");
-		PRI("Openning session for RESPOND_DH_CMD: ");
-		ret = TEEC_OpenSession( &context, &session_2, &uuid, connection_method, NULL, &operation_2, &return_origin);
-	
-		if( ret != TEE_SUCCESS ){
-	
-			PRIn("TEEC_OpenSession FOR APPLICATION B failed: 0x%x", ret);
-			return -1;
-		}
-		PRIn("opened");
-
-		/*Send respond command*/
-		if( -1 == send_respond( key_size[ i ], &session_2, &context, &return_origin ) ){
-
-			PRIn( " Failed to send respond command " );
-			return -1;
-		}
-
-		/*check return of respond command*/
-		check_ret_resp( key_size[ i ] );
-
-		TEEC_CloseSession ( &session_2 );
-
-		PRIn("\n************************** END OF APPLICATION B ******************************************************************************** \n");
-
-		/************************ END OF APPLICATION B *****************************************************************************************/
-
-		/*Send respond command*/
-		if( -1 == send_complet( key_size[ i ], &session, &context, &return_origin ) ){
-
-			PRIn( " Failed to send complet command " );
-			return -1;
-		}
-		/*Check returned key id*/
-		PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
-		/*check for public value*/
-
-		TEEC_CloseSession ( &session );
-
-		PRIn(" **********************************    END OF TEST FOR KEY_SIZE = %u *****************", key_size[ i ]);
+		PRIn("TEEC_OpenSession failed: 0x%x", ret);
+		return -1;
 	}
-	/************************     END OF TEST FOR KEY_SIZE ********************************************************/
+	PRIn("opened");
+
+	/*Send init command*/
+	if ( -1 == send_init( key_size, &session, &context, &return_origin ) ){
+		
+		PRIn( "Failed to send init command " );
+		return -1;
+	}
+
+	/*check init return*/
+	check_init_ret( key_size );
+	
+	/************************ APPLICATION B *****************************************************************************************/
+
+	/* Open session */
+	PRIn("************************** APPLICATION B ******************************************************************************** \n");
+	PRI("Openning session for RESPOND_DH_CMD: ");
+	ret = TEEC_OpenSession( &context, &session_2, &uuid, connection_method, NULL, &operation_2, &return_origin);
+	
+	if( ret != TEE_SUCCESS ){
+	
+		PRIn("TEEC_OpenSession FOR APPLICATION B failed: 0x%x", ret);
+		return -1;
+	}
+	PRIn("opened");
+
+	/*Send respond command*/
+	if( -1 == send_respond( key_size, &session_2, &context, &return_origin ) ){
+
+		PRIn( " Failed to send respond command " );
+		return -1;
+	}
+
+	/*check return of respond command*/
+	check_ret_resp( key_size );
+
+	TEEC_CloseSession ( &session_2 );
+
+	PRIn("\n************************** END OF APPLICATION B ******************************************************************************** \n");
+
+	/************************ END OF APPLICATION B *****************************************************************************************/
+
+	/*Send respond command*/
+	if( -1 == send_complet( key_size, &session, &context, &return_origin ) ){
+
+		PRIn( " Failed to send complet command " );
+		return -1;
+	}
+	/*Check returned key id*/
+	PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
+	/*check for public value*/
+
+	TEEC_CloseSession ( &session );
+
 
 	return 0;
 }

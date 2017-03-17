@@ -70,8 +70,38 @@
 
               (output)  params[1].memref.buffer = key_id_a        size of the buffer should be 8 octects
 
+
+	
+         - ENCRYPT_AES_CMD ( 0x00000004 ) :
+
+              (input)  params[0].memref.buffer = data to be encrypted
+               
+              (output)  params[1].memref.buffer = buffer where encrypted data is stored
+	
+              (output)  params[2].memref.buffer = Initial vector( initial counter value )
+
+              (input)  params[3].memref.buffer =  key_id to be used for the encryption
+
+	
+	 - DECRYPT_AES_CMD ( 0x00000005 ) :
+
+              (input)  params[0].memref.buffer = data to be decrypted
+
+               
+              (output)  params[1].memref.buffer = buffer where decrypted data is stored
+	
+              (input)  params[2].memref.buffer = Initial vector( initial counter value )
+
+              (input)  params[3].memref.buffer =  key_id to be used for the decryption
+
+
+
 # sessionContext would be NULL. Since the TA design is one session per instance there wouldn't be any conflict of sessionContext so there is no need for session identifier.
 
-# Maximum Key length supported is 2048. Generator (g) should always be 4 bytes(octets) long.
+# Key length supported is AES 256. Generator (g) should always be 4 bytes(octets) long.
 
-#key id is 8 bytes long
+# Only AES CTR algorithm is supported for syymetric encryption and decryption
+
+# key id is 8 bytes long
+
+

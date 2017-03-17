@@ -283,6 +283,8 @@ TEE_Result creat_prs_obj( uint8_t key_id[8], TEE_ObjectHandle attrbs_obj ){
 	else if( TEE_SUCCESS != ret )
 		goto error;	
 
+	TEE_CloseObject( prs_obj_hndl );
+
 	return TEE_SUCCESS;
 
 	error:
@@ -414,7 +416,7 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 	TEE_MemMove( key_id, params[3].memref.buffer, KEY_ID_SIZE );
 
 	/*open persistent object containing the syymetric key*/
-	ret = TEE_Result TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
+	ret = TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
 	if( TEE_SUCCESS != ret )
 		return ret;
 
@@ -427,17 +429,19 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 	if( TEE_SUCCESS != ret )
 		return ret;
 
+	TEE_CloseObject( key_obj_hdl );	
+
 	/*extract plain text size*/
 	plain_text_size = params[0].memref.size;
 
 	/* generate rendom value for initial counter value */
-	void TEE_GenerateRandom( random_value, RAND_VALUE_LEN );
+	TEE_GenerateRandom( random_value, RAND_VALUE_LEN );
 
 	/*prepare initial counter value*/
-	TEE_Move( initial_counter_value, random_value, RAND_VALUE_LEN); 
+	TEE_MemMove( initial_counter_value, random_value, RAND_VALUE_LEN); 
 
 	/*Initialize the cipher*/
-	void TEE_CipherInit( operation, initial_counter_value, AES_BLOCK_SIZE );
+	TEE_CipherInit( operation, initial_counter_value, AES_BLOCK_SIZE );
 
 	do{
 
@@ -457,7 +461,7 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 			/*copy plain text*/
 			TEE_MemMove( buffer_plain_text, params[0].memref.buffer + index, copy_size );
 
-			/*enrypt plain text*/
+			/*encrypt plain text*/
 			ret = TEE_CipherDoFinal( operation, buffer_plain_text, copy_size, buffer_encrypted, &encrypted_size );
 			if( TEE_SUCCESS != ret )
 				return ret;			
@@ -472,6 +476,85 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 	
 	/*copy initial counter value to output parameter buffer*/
 	TEE_MemMove( params[2].memref.buffer, initial_counter_value, AES_BLOCK_SIZE );
+
+	return TEE_SUCCESS;			
+}
+
+/*Encrypt plain text*/
+TEE_Result  decrypt( TEE_Param params[4] ){
+
+	TEE_ObjectHandle key_obj_hdl;
+	TEE_OperationHandle operation;
+	TEE_Result ret;
+		
+	uint8_t key_id[ KEY_ID_SIZE ] = { 0 };
+	uint8_t buffer_decrypted[ BUFFER_DECRYPTED_SIZE ] = { 0 };	
+	uint8_t buffer_encrypted[ BUFFER_ENCRYPTED_SIZE ] = { 0 };  /* holds up to 'AES_BLOCK_SIZE * 16' bytes of encrypted data, after this much data is decrypted this buffere is coppied to the
+								     the output parameter and the buffer is reset in preparation to hold the next encrypted values*/
+	uint8_t initial_counter_value[ AES_BLOCK_SIZE ] = { 0 };
+	uint32_t decrypted_size;
+	uint32_t encrypted_size;
+	uint32_t copy_size;
+	uint32_t index = 0;
+
+	/*Retrieve key id*/
+	TEE_MemMove( key_id, params[3].memref.buffer, KEY_ID_SIZE );
+
+	/*open persistent object containing the syymetric key*/
+	ret = TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	ret = TEE_AllocateOperation( &operation, TEE_ALG_AES_CTR, TEE_MODE_DECRYPT, MAX_KEY_LEN_SUPP );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*set operation key*/
+	ret = TEE_SetOperationKey( operation, key_obj_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	TEE_CloseObject( key_obj_hdl );	
+
+	/*extract encrypted data size*/
+	encrypted_size = params[0].memref.size;
+
+	/*extract initial counter value*/
+	TEE_MemMove( initial_counter_value, params[2].memref.buffer, AES_BLOCK_SIZE ); 
+
+	/*Initialize the cipher*/
+	TEE_CipherInit( operation, initial_counter_value, AES_BLOCK_SIZE );
+
+	do{
+
+		copy_size = encrypted_size - index;
+		if( BUFFER_ENCRYPTED_SIZE < copy_size ){
+
+			/*copy encrypted data*/
+			TEE_MemMove( buffer_encrypted, params[0].memref.buffer + index, BUFFER_ENCRYPTED_SIZE );
+
+			/*decrypt plain text*/
+			ret = TEE_CipherDoFinal( operation, buffer_encrypted, BUFFER_PLAIN_TEXT_SIZE, buffer_decrypted, &decrypted_size );
+			if( TEE_SUCCESS != ret )
+				return ret;
+		}
+		else{
+
+			/*copy encrypted data*/
+			TEE_MemMove( buffer_encrypted, params[0].memref.buffer + index, copy_size );
+
+			/*decrypt encrypted data*/
+			ret = TEE_CipherDoFinal( operation, buffer_encrypted, copy_size, buffer_decrypted, &decrypted_size );
+			if( TEE_SUCCESS != ret )
+				return ret;			
+		}
+		
+		/*copy encrypted data to output parameter buffer*/
+		TEE_MemMove( params[1].memref.buffer, buffer_decrypted, decrypted_size );
+
+		index += BUFFER_ENCRYPTED_SIZE;
+
+	} while ( index < encrypted_size );
 
 	return TEE_SUCCESS;			
 }

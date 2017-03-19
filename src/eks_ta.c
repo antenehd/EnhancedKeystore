@@ -3,15 +3,12 @@
 #include "tee_logging.h"
 #include "tee_ta_properties.h"
 
-/*test*/
-#include <string.h>
-
 #define INITIATE_DH_CMD 	   0x00000001
 #define RESPOND_DH_CMD  	   0x00000002
 #define COMPLETE_DH_CMD 	   0x00000003
 #define ENCRYPT_AES_CMD		   0x00000004
 #define DECRYPT_AES_CMD		   0x00000005
-#define G_SIZE			   4
+#define GEN_SIZE		   4
 #define PRIME_SIZE	           256
 #define SUPPORTED_KEY_LEN	   256
 #define MAX_KEY_LEN_SUPP	   256
@@ -22,7 +19,7 @@
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
 
-uint8_t gn[ G_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
+uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
 
 uint8_t prime[ PRIME_SIZE] = {	0xD3,0x37,0xA9,0x85,0x96,0xF8,0x1E,0x8B,0x88,0xC3,0x1B,0x07,
 				0x07,0x7D,0xF1,0x4A,0x79,0x7C,0xCB,0xE3,0x58,0x55,0x2C,0x6C,
@@ -57,6 +54,9 @@ SET_TA_PROPERTIES(
 		0, /* singletonInstance */
 		1, /* multiSession */
 		0 /* instanceKeepAlive */)
+
+/*transient object to store DH parameters temporarly*/
+TEE_ObjectHandle trs_pub_key_obj_hdl;
 
 /*Length of the sysmmetric secret key(in bits) to be generated*/
 uint32_t key_length;
@@ -206,19 +206,19 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 }
 
 /*generate a DH public and private keys and populate the transient object*/
-TEE_Result generate_public_key( TEE_ObjectHandle *trs_key_obj_hdl, uint32_t key_length, uint8_t *prime, uint32_t prime_size, uint8_t *g, uint32_t g_size ){
+TEE_Result generate_public_key( uint32_t key_length, uint8_t *prime, uint32_t prime_size, uint8_t *g ){
 
 	TEE_Attribute attrs[2];
 
-	if( ( NULL == *trs_key_obj_hdl ) || ( NULL == prime ) || ( NULL == g ) ){
+	if( ( NULL == prime ) || ( NULL == g ) ){
 
 		OT_LOG( LOG_INFO, "IN FUNCTION generate_public_key: NULL parameter passed\n");
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
 
 	TEE_InitRefAttribute(&attrs[0], TEE_ATTR_DH_PRIME, prime, prime_size );
-	TEE_InitRefAttribute(&attrs[1], TEE_ATTR_DH_BASE, g, g_size);
-	if( TEE_SUCCESS != TEE_GenerateKey( *trs_key_obj_hdl, key_length, attrs, sizeof( attrs )/sizeof( TEE_Attribute ) ) ){
+	TEE_InitRefAttribute(&attrs[1], TEE_ATTR_DH_BASE, g, GEN_SIZE);
+	if( TEE_SUCCESS != TEE_GenerateKey( trs_pub_key_obj_hdl, key_length, attrs, sizeof( attrs )/sizeof( TEE_Attribute ) ) ){
 
 		OT_LOG( LOG_INFO, "IN FUNCTION generate_public_key: Bad parameter given to TEE_GenerateKey\n");
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -256,9 +256,6 @@ TEE_Result creat_prs_obj( uint8_t key_id[8], TEE_ObjectHandle attrbs_obj ){
 	if( TEE_SUCCESS != ret )
 		return ret;
 
-	/*TEST*/
-	OT_LOG( LOG_INFO, "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_id[0], key_id[1], key_id[2], key_id[3], key_id[4], key_id[5], key_id[6], key_id[7] );
-
 	/*Create persistent object to store the shared key*/
 	ret = TEE_CreatePersistentObject( TEE_STORAGE_PRIVATE, key_id, 8, 0, attrbs_obj, NULL, 0,  &prs_obj_hndl );
 
@@ -292,7 +289,7 @@ TEE_Result creat_prs_obj( uint8_t key_id[8], TEE_ObjectHandle attrbs_obj ){
 }
 
 /*Generate shared secret*/
-TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uint32_t key_length, uint8_t * public_value_received, uint32_t public_received_len, TEE_ObjectHandle trs_key_obj_private_hdl  ){
+TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uint32_t key_length, uint8_t * public_value_received, uint32_t public_received_len ){
 
 	TEE_Result ret;
 	TEE_OperationHandle sk_generation;
@@ -319,9 +316,9 @@ TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uin
 	ret = TEE_PopulateTransientObject( *trs_secret_key_obj_hdl, &attr_secret_val, 1 );
 	if( TEE_SUCCESS != ret )
 		goto error;
-		
+
 	/*Set private value in to operation*/
-	ret = TEE_SetOperationKey( sk_generation, trs_key_obj_private_hdl );
+	ret = TEE_SetOperationKey( sk_generation, trs_pub_key_obj_hdl );
 	if( TEE_SUCCESS != ret )
 		goto error;
 
@@ -331,15 +328,6 @@ TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uin
 	/*Derive shared secret key*/
 	TEE_DeriveKey( sk_generation, &attr_public_val, 1, *trs_secret_key_obj_hdl );
 
-	/******************************************************** Test  ***********************************************************************************/
-	OT_LOG( LOG_INFO, "TEST: shared key= %02x %02x %02x %02x %02x %02x %02x %02x\n", shared_key[0],  shared_key[1], shared_key[2], shared_key[124], shared_key[125], shared_key[253], shared_key[254],  shared_key[255] );
-	/*Get private value*/
-	ret = TEE_GetObjectBufferAttribute( *trs_secret_key_obj_hdl, TEE_ATTR_SECRET_VALUE, shared_key, &shared_key_len );
-	if( TEE_SUCCESS != ret )
-		goto error;
-	OT_LOG( LOG_INFO, "TEST: shared key= %02x %02x %02x %02x %02x %02x %02x %02x\n", shared_key[0],  shared_key[1], shared_key[2], shared_key[124], shared_key[125], shared_key[253], shared_key[254],  shared_key[255] );
-	/************************************************************ End test ******************************************************************************/
-	
 	return TEE_SUCCESS;
 
 	error:
@@ -373,7 +361,7 @@ TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, 
 	ret = TEE_GetObjectBufferAttribute( *trs_source, TEE_ATTR_SECRET_VALUE, shared_key, &shared_key_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
-OT_LOG( LOG_INFO, "TEST: hash len= %u \n", hash_len );
+
 	ret = TEE_DigestDoFinal( operation, shared_key_received, shared_key_rec_len, hash, &hash_len );
 
 	/*allocated a transient object to store the hash (shared secret key)*/
@@ -382,7 +370,7 @@ OT_LOG( LOG_INFO, "TEST: hash len= %u \n", hash_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
 
-OT_LOG( LOG_INFO, "TEST: hash len= %u   hash value= %02x %02x %02x %02x %02x %02x %02x %02x\n", hash_len, hash[0],  hash[1], hash[2], hash[3], hash[4], hash[30], hash[31],  hash[32] );
+
 	/*populate transient object with TEE_ATTR_SECRET_VALUE attribute*/
 	TEE_InitRefAttribute( &attr_secret_val, TEE_ATTR_SECRET_VALUE, hash, hash_len );
 	ret = TEE_PopulateTransientObject( *trs_store, &attr_secret_val, 1 );
@@ -394,7 +382,160 @@ OT_LOG( LOG_INFO, "TEST: hash len= %u   hash value= %02x %02x %02x %02x %02x %02
 	return TEE_SUCCESS;
 }
 
-/*Encrypt plain text*/
+/*Used to process initialize command */
+TEE_Result init_cmd( TEE_Param params[4] ){
+
+	TEE_Result ret;
+	uint8_t public_value[ PRIME_SIZE ] = {0};
+	uint32_t pb_len = PRIME_SIZE;
+
+	/*retrieve key_len from parameter 4 b*/
+	key_length = params[3].value.b;
+
+	if( SUPPORTED_KEY_LEN != key_length )					
+		return TEE_ERROR_BAD_PARAMETERS;		
+
+	/*copy generator to parameter 2*/
+	TEE_MemMove( params[1].memref.buffer, (void *) gn, GEN_SIZE );
+
+	/*copy prime value to parameter 3*/
+	TEE_MemMove( params[2].memref.buffer, (void *) prime, PRIME_SIZE );	
+
+	/*create transient object for DH*/
+	ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_pub_key_obj_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*Generate public key*/
+	if( TEE_SUCCESS != ( ret = generate_public_key( PRIME_SIZE * 8, prime,  PRIME_SIZE, gn ) ) )
+		return ret;
+
+	/*Get public value*/
+	ret = TEE_GetObjectBufferAttribute( trs_pub_key_obj_hdl, TEE_ATTR_DH_PUBLIC_VALUE, public_value, &pb_len );
+	if( TEE_SUCCESS != ret )
+		return ret;	
+
+	/*Set public value in to parameter for Client application*/
+	TEE_MemMove( params[0].memref.buffer,  public_value, pb_len );	
+
+	return TEE_SUCCESS;
+}
+
+/*Used to process respond command */
+TEE_Result  respond_cmd( TEE_Param params[4] ){
+
+	TEE_Result ret;
+	uint32_t key_length;
+	uint8_t key_id[ 8 ] = { 0 };
+	uint8_t prime_received[PRIME_SIZE] = { 0 };
+	uint32_t prime_received_len;
+	uint8_t generator_received[ GEN_SIZE ] = { 0 };
+	uint8_t public_value_received[PRIME_SIZE] = {0};
+	uint32_t public_received_len;
+	uint8_t public_value[ PRIME_SIZE ] = {0};
+	uint32_t pb_len = PRIME_SIZE;
+
+	TEE_ObjectHandle trs_secret_key_obj_hdl;	/*Holds a 2048 bit intermediate shared secrete key*/
+	TEE_ObjectHandle trs_secret_key_store_hdl;		/*Holds the final shared secrete key which is of the requested size*/
+
+	/*retrieve key_len from parameter */
+	TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
+
+	if( SUPPORTED_KEY_LEN != key_length )					
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	/*retrieve generator value*/
+	if( GEN_SIZE != params[1].memref.size )	
+		return TEE_ERROR_BAD_PARAMETERS;
+	TEE_MemMove( generator_received, params[1].memref.buffer, GEN_SIZE );
+
+	/*retrieve public value*/
+	public_received_len = params[0].memref.size;
+	TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );		
+
+	/*retrieve prime value*/
+	prime_received_len = params[2].memref.size;
+	TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
+	if(  PRIME_SIZE != prime_received_len ){
+
+		OT_LOG(LOG_INFO, " Prime size not supported. Only 2048 bit prime supported.\n" );
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
+
+	/*create transient object for DH*/
+	ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_pub_key_obj_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+					
+	/*Generate public key*/
+	if( TEE_SUCCESS != ( ret = generate_public_key( PRIME_SIZE * 8, prime_received, prime_received_len, generator_received ) ) )
+		return ret;
+
+	/*Get public value*/
+	ret = TEE_GetObjectBufferAttribute( trs_pub_key_obj_hdl, TEE_ATTR_DH_PUBLIC_VALUE, public_value, &pb_len );
+	if( TEE_SUCCESS != ret )
+		return ret;	
+
+	/*Set public value in to shared memory for Client application*/
+	TEE_MemMove( params[0].memref.buffer,  public_value, pb_len );
+
+	/*Generate a 2048 bit shared secret key*/
+	ret = generate_shared_secret( &trs_secret_key_obj_hdl, PRIME_SIZE * 8, public_value_received, public_received_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
+	ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store_hdl );
+
+	/*Create a persistent object and store the shared secret key*/
+	ret = creat_prs_obj( key_id, trs_secret_key_store_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*set key_id into shared memory*/
+	TEE_MemMove( params[3].memref.buffer, key_id, 8 );
+
+	TEE_FreeTransientObject( trs_pub_key_obj_hdl );
+
+	return TEE_SUCCESS;
+}
+
+/*Used to process complete command */
+TEE_Result  complete_cmd( TEE_Param params[4] ){
+
+	TEE_Result ret;
+	uint8_t key_id[ 8 ] = { 0 };
+	uint8_t public_value_received[PRIME_SIZE] = {0};
+	uint32_t public_received_len;
+
+	TEE_ObjectHandle trs_secret_key_obj_hdl;	/*Holds a 2048 bit intermediate shared secrete key*/
+	TEE_ObjectHandle trs_secret_key_store_hdl;	/*Holds the final shared secrete key which is of the requested size*/
+
+	/*Retrieve public value*/
+	public_received_len = params[0].memref.size;
+	TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );
+
+	/*Generate 2048 bit shared secret key*/
+	ret = generate_shared_secret( &trs_secret_key_obj_hdl, PRIME_SIZE * 8, public_value_received, public_received_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
+	ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store_hdl );
+
+	/*Create a persistent object and store the shared secret key*/
+	ret = creat_prs_obj( key_id, trs_secret_key_store_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+OT_LOG(LOG_INFO, "TEST: key_id %02x%02x%02x%02x%02x%02x%02x%02x", key_id[0], key_id[1], key_id[2], key_id[3], key_id[4], key_id[5], key_id[6], key_id[7] );
+	/*set key_id into shared memory*/
+	TEE_MemMove( params[1].memref.buffer, key_id, KEY_ID_SIZE );
+
+	return TEE_SUCCESS;
+}
+
+/*Used to process the encryption of plain text sent from CA*/
 TEE_Result  encrypt( TEE_Param params[4] ){
 
 	TEE_ObjectHandle key_obj_hdl;
@@ -480,7 +621,7 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 	return TEE_SUCCESS;			
 }
 
-/*Encrypt plain text*/
+/*Used to process the decryption of encrypted data sent from CA*/
 TEE_Result  decrypt( TEE_Param params[4] ){
 
 	TEE_ObjectHandle key_obj_hdl;
@@ -559,21 +700,21 @@ TEE_Result  decrypt( TEE_Param params[4] ){
 	return TEE_SUCCESS;			
 }
 
-/*Entry point for the TA*/
+/*Entry point when the trusted application instance is created*/
 TEE_Result TA_EXPORT TA_CreateEntryPoint(void){
 	
 	OT_LOG(LOG_DEBUG, "Calling entry point for EKS_TA");
 	return TEE_SUCCESS;
 }
 
-/**/
+/*Entry point when trusted application instance is destroyed*/
 void TA_EXPORT TA_DestroyEntryPoint(void)
 {
 
 	OT_LOG(LOG_DEBUG, "Calling Destroy entry point for EKS_TA");
 }
 
-/**/
+/*Entry point when open session request is received*/
 TEE_Result TA_EXPORT TA_OpenSessionEntryPoint(uint32_t paramTypes, TEE_Param params[4], void **sessionContext){
 
 	OT_LOG(LOG_INFO, "Calling Open session entry point for EKS_TA");
@@ -581,30 +722,16 @@ TEE_Result TA_EXPORT TA_OpenSessionEntryPoint(uint32_t paramTypes, TEE_Param par
    	return TEE_SUCCESS;
 }
 
-/**/
+/*Entry point when close session request is received*/
 void TA_EXPORT TA_CloseSessionEntryPoint(void *sessionContext){
 
 	OT_LOG(LOG_INFO, "Calling Close session entry point for EKS_TA");
 }
 
-/**/
+/*Entry point when command is received*/
 TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t commandID, uint32_t paramTypes, TEE_Param params[4]){
 
 	TEE_Result ret;
-	uint8_t public_value[PRIME_SIZE] = {0};
-	uint32_t pv_len = PRIME_SIZE;
-	uint8_t key_id[8];
-
-	/*transient object to store DH parameters temporarly*/
-	TEE_ObjectHandle trs_key_obj_hdl;
-	TEE_ObjectHandle trs_secret_key_obj_hdl;	/*Holds a 2048 bit intermediate shared secrete key*/
-	TEE_ObjectHandle trs_secret_key_store;		/*Holds the final shared secrete key which is of the requested size*/
-
-	uint8_t prime_received[PRIME_SIZE] = { 0 };
-	uint8_t public_value_received[PRIME_SIZE] = {0};
-	uint8_t generator_received[4] = { 0 };
-	uint32_t prime_received_len;
-	uint32_t public_received_len;
 
 	if( INITIATE_DH_CMD == commandID ){
 
@@ -614,35 +741,11 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		ret = validate_param_type( paramTypes, INITIATE_DH_CMD );
 		if( TEE_SUCCESS != ret )
 			goto error;
-
-		/*retrieve key_len from parameter 4 b*/
-		key_length = params[3].value.b;
-
-		if( SUPPORTED_KEY_LEN != key_length )					
-			return TEE_ERROR_BAD_PARAMETERS;		
-
-		/*copy g to parameter 2*/
-		TEE_MemMove( params[1].memref.buffer, (void *) gn, G_SIZE );
-
-		/*copy prime value to parameter 3*/
-		TEE_MemMove( params[2].memref.buffer, (void *) prime, PRIME_SIZE );	
-
-		/*create transient object for DH*/
-		ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_key_obj_hdl );
+	
+		/*process the initiate DH command received*/
+		ret = init_cmd( params );	
 		if( TEE_SUCCESS != ret )
-			goto error;
-
-		/*Generate public key*/
-		if( TEE_SUCCESS != ( ret = generate_public_key( &trs_key_obj_hdl,  PRIME_SIZE * 8, prime,  PRIME_SIZE, gn, G_SIZE ) ) )
-			goto error;
-
-		/*Get public value*/
-		ret = TEE_GetObjectBufferAttribute( trs_key_obj_hdl, TEE_ATTR_DH_PUBLIC_VALUE, public_value, &pv_len );
-		if( TEE_SUCCESS != ret )
-			goto error;	
-
-		/*Set public value in to parameter for Client application*/
-		TEE_MemMove( params[0].memref.buffer,  public_value, pv_len );			
+			goto error;		
 	} 
 	else if( RESPOND_DH_CMD == commandID ){
 
@@ -653,71 +756,10 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		if( TEE_SUCCESS != ret )
 			goto error;
 
-		/*retrieve key_len from parameter */
-		TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
-
-		if( SUPPORTED_KEY_LEN != key_length )					
-			return TEE_ERROR_BAD_PARAMETERS;
-
-		/*retrieve generator value*/
-		if( G_SIZE != params[1].memref.size )	
-			return TEE_ERROR_BAD_PARAMETERS;
-		TEE_MemMove( generator_received, params[1].memref.buffer, G_SIZE );
-
-		/*retrieve public value*/
-		public_received_len = params[0].memref.size;
-		TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );		
-
-		/*retrieve prime value*/
-		prime_received_len = params[2].memref.size;
-		TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
-		if(  PRIME_SIZE != prime_received_len ){
-
-			OT_LOG(LOG_INFO, " Prime size not supported. Only 2048 bit prime supported.\n" );
-			goto error;
-		}
-		/*Test: generator value*/
-		OT_LOG(LOG_INFO, "TEST: RECEIVED genrator_VALUE = %02x %02x %02x %02x\n", generator_received[0], generator_received[1], generator_received[2], generator_received[3] );
-		/*Test: show received public value*/
-		OT_LOG(LOG_INFO, "TEST: RECEIVED PUBLIC_VALUE = %u %02x %02x %02x %02x %02x %02x %02x %02x\n", public_received_len, public_value_received[0], public_value_received[1],public_value_received[2],public_value_received[3],public_value_received[4],public_value_received[5],public_value_received[6],public_value_received[7]);
-		/*Test: show received prime value*/
-		OT_LOG( LOG_INFO, "TEST: RECEIVED PRIME_VALUE = %u %02x %02x %02x %02x %02x %02x %02x %02x\n", prime_received_len, prime_received[0], prime_received[1],prime_received[2],prime_received[3], prime_received[4], prime_received[61], prime_received[62], prime_received[63] );
-
-		/*create transient object for DH*/
-		ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_key_obj_hdl );
-		if( TEE_SUCCESS != ret )
-			goto error;
-					
-		/*Generate public key*/
-		if( TEE_SUCCESS != ( ret = generate_public_key( &trs_key_obj_hdl, PRIME_SIZE * 8, prime_received, prime_received_len, generator_received, G_SIZE ) ) )
-			goto error;
-
-		/*Get public value*/
-		ret = TEE_GetObjectBufferAttribute( trs_key_obj_hdl, TEE_ATTR_DH_PUBLIC_VALUE, public_value, &pv_len );
+		/*process the respond DH command received*/
+		ret = respond_cmd( params );
 		if( TEE_SUCCESS != ret )
 			goto error;	
-
-		/*Set public value in to shared memory for Client application*/
-		TEE_MemMove( params[0].memref.buffer,  public_value, pv_len );
-
-		/*Generate a 2048 bit shared secret key*/
-		ret = generate_shared_secret( &trs_secret_key_obj_hdl, PRIME_SIZE * 8, public_value_received, public_received_len, trs_key_obj_hdl );
-		if( TEE_SUCCESS != ret )
-			goto error;
-
-		/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
-		ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store );
-
-		/*Create a persistent object and store the shared secret key*/
-		ret = creat_prs_obj( key_id, trs_secret_key_store );
-		if( TEE_SUCCESS != ret )
-			goto error;
-
-		/*set key_id into shared memory*/
-		TEE_MemMove( params[3].memref.buffer, key_id, 8 );
-
-		/*Deallocate the transient object*/
-		TEE_FreeTransientObject( trs_key_obj_hdl );
 	}
 	else if(  COMPLETE_DH_CMD == commandID ){
 
@@ -726,32 +768,14 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes,  COMPLETE_DH_CMD );
 		if( TEE_SUCCESS != ret )
-			goto error;			
+			goto error;		
 
-		/*Retrieve public value*/
-		public_received_len = params[0].memref.size;
-		TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );
-
-		/*Test: show received public value*/
-		OT_LOG(LOG_INFO, "TEST: RECEIVED PUBLIC_VALUE = %02x %02x %02x %02x %02x %02x %02x %02x\n", public_value_received[0], public_value_received[1],public_value_received[2],public_value_received[3],public_value_received[4],public_value_received[5],public_value_received[6],public_value_received[7]);
-
-		/*Generate 2048 bit shared secret key*/
-		ret = generate_shared_secret( &trs_secret_key_obj_hdl, PRIME_SIZE * 8, public_value_received, public_received_len, trs_key_obj_hdl );
+		/*process the complete DH command received*/
+		ret = complete_cmd( params );
 		if( TEE_SUCCESS != ret )
-			goto error;
+			goto error;	
 
-		/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
-		ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store );
-
-		/*Create a persistent object and store the shared secret key*/
-		ret = creat_prs_obj( key_id, trs_secret_key_store );
-		if( TEE_SUCCESS != ret )
-			goto error;
-
-		/*set key_id into shared memory*/
-		TEE_MemMove( params[1].memref.buffer, key_id, 8 );
-
-		TEE_FreeTransientObject( trs_key_obj_hdl );
+		TEE_FreeTransientObject( trs_pub_key_obj_hdl );
 
 	}
 	else if(  ENCRYPT_AES_CMD == commandID ){
@@ -763,7 +787,7 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		ret = validate_param_type( paramTypes,  ENCRYPT_AES_CMD );
 		if( TEE_SUCCESS != ret )
 			goto error;	
-	
+		/*process the encryption command received*/
 		ret = encrypt( params );
 		if( TEE_SUCCESS != ret )
 			goto error;
@@ -777,6 +801,7 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 		if( TEE_SUCCESS != ret )
 			goto error;	
 	
+		/*process the decryption command received*/
 		ret = decrypt( params );
 		if( TEE_SUCCESS != ret )
 			goto error;	

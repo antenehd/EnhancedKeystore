@@ -95,13 +95,21 @@
               (input)  params[3].memref.buffer =  key_id to be used for the decryption
 
 
+# sessionContext would be NULL. The TA design is such that there is one session per instance therefore there is no need to set sessionContext to identify the session with in the instance.
 
-# sessionContext would be NULL. Since the TA design is one session per instance there wouldn't be any conflict of sessionContext so there is no need for session identifier.
+# Key length supported is AES 256. Generator (g) should always be 4 bytes(octets) long and the prime should always be 2048 bit long.
 
-# Key length supported is AES 256. Generator (g) should always be 4 bytes(octets) long.
+# Only AES CTR algorithm is supported for syymetric encryption and decryption.
 
-# Only AES CTR algorithm is supported for syymetric encryption and decryption
+# Syymetric key identifier is 8 bytes long.
 
-# key id is 8 bytes long
+# A new session should be opened before invoking the following commands:
+	
+	- INITIATE_DH_CMD
+	- RESPOND_DH_CMD
+	- ENCRYPT_AES_CMD
+	- DECRYPT_AES_CMD
+
+# Command COMPLETE_DH_CMD should be invoked with in the same session as the command INITIATE_DH_CMD
 
 

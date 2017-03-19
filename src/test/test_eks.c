@@ -19,7 +19,6 @@
 #define  g_size   4
 
 #define  KEY_LEN_256	256
-#define  KEY_LEN_128	128
 
 #define  PLAIN_TXT_SIZE 130
 #define AES_BLOCK_SIZE  16
@@ -174,7 +173,7 @@ int send_complet( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	/*send complete dh command*/
 	PRIn("Trying to send COMPLETE_DH_CMD");
 	ret = TEEC_InvokeCommand( session, COMPLETE_DH_CMD, &operation, return_origin );
-	if (ret != TEEC_SUCCESS) {
+	if ( TEEC_SUCCESS != TEEC_SUCCESS ) {
 		PRIn("TEEC_InvokeCommand for COMPLETE_DH_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
@@ -292,7 +291,9 @@ int encrypt_data( uint8_t key_size[8], uint8_t *plain_txt, uint8_t *encrypted, u
 		PRIn("TEEC_InvokeCommand for ENCRYPT_AES_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
+
 	PRIn("Plain text encrypted");
+
 	return 1;
 }
 
@@ -337,6 +338,7 @@ int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypt
 		return -1;
 	}
 	PRIn("Encrypted data decrypted");
+
 	return 1;
 }
 
@@ -359,6 +361,8 @@ int test_encry_decr( uint8_t *plain_txt, uint8_t *decrypted, uint32_t size){
 	}
 
 	PRIn("Encryption Decryption test passed.");
+
+	return 1;
 }
 
 static int test_eks()
@@ -445,7 +449,7 @@ static int test_eks()
 
 	/************************ END OF APPLICATION B *****************************************************************************************/
 
-	/*Send respond command*/
+	/*Send complet command*/
 	if( -1 == send_complet( key_size, &session, &context, &return_origin ) ){
 
 		PRIn( " Failed to send complet command " );
@@ -500,7 +504,7 @@ static int test_eks()
 	if( -1 == test_encry_decr( plain_txt, decrypted, PLAIN_TXT_SIZE) )
 		PRIn("Test for encryption and decryption failed.");
 
-	return 0;
+	return 1;
 }
 
 int main(){

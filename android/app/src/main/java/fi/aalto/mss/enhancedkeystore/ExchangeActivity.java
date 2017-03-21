@@ -7,6 +7,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -17,6 +18,8 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 
 public class ExchangeActivity extends AppCompatActivity {
+
+    private static String TAG = ExchangeActivity.class.getSimpleName();
 
     /**
      * The Handler that gets information back from the BluetoothChatService
@@ -74,6 +77,7 @@ public class ExchangeActivity extends AppCompatActivity {
     private String mDeviceName;
     private BluetoothService mBluetoothService;
     private BluetoothAdapter mBluetoothAdapter;
+    private Worker mWorker;
 
     @BindView(R.id.bt_status_value_tv) TextView mStatusTextView;
     @BindView(R.id.bt_connect_btn) Button mConnectButton;
@@ -108,6 +112,9 @@ public class ExchangeActivity extends AppCompatActivity {
                 initKeyExchange();
             }
         });
+
+        mWorker = new Worker("Enhanced Keystore Worker", mHandler, getApplicationContext());
+        mWorker.start();
     }
 
 
@@ -148,7 +155,11 @@ public class ExchangeActivity extends AppCompatActivity {
     }
 
     private void initKeyExchange() {
-        mBluetoothService.write("Hi there!".getBytes());
+
+        Handler workerHandler = mWorker.getHandler();
+        Message msg = workerHandler.obtainMessage(Worker.CMD_INIT);
+        workerHandler.sendMessage(msg);
+
     }
 
 }

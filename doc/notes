@@ -48,7 +48,7 @@
 
               (output)  params[2].memref.buffer = p               where p is the prime. size of buffer should be 256 Bytes.
 
-              (input)   params[3].value.b = key_length            
+              (input)   params[3].value.b = key_length            this is uint32_t value
 
 
          - RESPOND_DH_CMD ( 0x00000002 ) :
@@ -60,7 +60,7 @@
 
               (input)  params[2].memref.buffer = p                               where p is the prime. size of buffer should be 256 Bytes.
 
-              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when input key_length should be set in the first four octets. when output
+              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when 'input' key_length should be set in the first four octets. when output
 																				 the key_id_b should set all 8 octets
 
 

@@ -41,11 +41,11 @@
 
          - INITIATE_DH_CMD( 0x00000001 ):
 
-              (output)  params[0].memref.buffer = gx              where 'gx' is the public shared secrete key generated (g^x mod p)
+              (output)  params[0].memref.buffer = gx              where 'gx' is the public shared secrete key generated (g^x mod p). buffer size is 2048 bits
                
-              (output)  params[1].memref.buffer = g               where g is the generator
+              (output)  params[1].memref.buffer = g               where g is the generator. buffer is 4 bytes
 
-              (output)  params[2].memref.buffer = p               where p is the prime
+              (output)  params[2].memref.buffer = p               where p is the prime. buffer size is 2048 bits
 
               (input)   params[3].value.b = key_length
 
@@ -53,20 +53,20 @@
          - RESPOND_DH_CMD ( 0x00000002 ) :
 
               (inout)  params[0].memref.buffer = gx(input) & gy(output)          where 'gx' is the public shared secrete key provided by remote end (g^x mod p) and 'gy' is the response public
-                                                                                 shared key generated (g^y mod p)
+                                                                                 shared key generated (g^y mod p). buffer size if 2048 bits
                
-              (input)  params[1].memref.buffer = g                               where g is the generator
+              (output)  params[1].memref.buffer = key_id	                 key id is 8 octets.
 
-              (input)  params[2].memref.buffer = p                               where p is the prime
+              (input)  params[2].memref.buffer = p                               where p is the prime. buffer size is 2048 bits
 
-              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when input key_length should be set in the first four octets. when output
-																				 the key_id_b should set all 8 octets
+              (input)  params[3].value.a =  key_length                           key length in bits
 
-
+              (input)  params[3].value.b =  g                                    where g is the generator
+       
 
          - COMPLETE_DH_CMD ( 0x00000003 ) :
 
-              (input)  params[0].memref.buffer = gy              where 'gy' is the public shared secrete key provided by remote end (g^y mod p)
+              (input)  params[0].memref.buffer = gy              where 'gy' is the public shared secrete key provided by remote end (g^y mod p). buffer size is 2048 bits
 
               (output)  params[1].memref.buffer = key_id_a        size of the buffer should be 8 octects
 
@@ -78,9 +78,9 @@
                
               (output)  params[1].memref.buffer = buffer where encrypted data is stored
 	
-              (output)  params[2].memref.buffer = Initial vector( initial counter value )
+              (output)  params[2].memref.buffer = Initial vector( initial counter value ). buffer size should be 128 bits
 
-              (input)  params[3].memref.buffer =  key_id to be used for the encryption
+              (input)  params[3].memref.buffer =  key_id to be used for the encryption. 
 
 	
 	 - DECRYPT_AES_CMD ( 0x00000005 ) :

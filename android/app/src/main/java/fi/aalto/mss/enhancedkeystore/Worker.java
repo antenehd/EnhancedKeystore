@@ -22,12 +22,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
-import java.io.IOException;
-
-import fi.aalto.mss.enhancedkeystore.WorkerCallback;
 import fi.aalto.ssg.opentee.ITEEClient;
-import fi.aalto.ssg.opentee.exception.BadFormatException;
-import fi.aalto.ssg.opentee.exception.BadParametersException;
+import fi.aalto.mss.enhancedkeystore.TAServiceUtils.DHGenParameters;
 
 /**
  * Example code to deal with remote TEE service in a separate thread.
@@ -37,21 +33,21 @@ public class Worker extends HandlerThread implements WorkerCallback {
 
     final String TAG = "Worker";
 
-    public final static int CMD_GENERATE_ROOT_KEY = 1;
-    public final static int CMD_INIT = 2;
-    public final static int CMD_FINALIZE = 3;
-    public final static int CMD_CREATE_DIR_KEY = 4;
+    public final static int CMD_INIT = 1;
+    public final static int CMD_INIT_DH = 2;
+    public final static int CMD_RESPOND_DH = 3;
+    public final static int CMD_FINALIZE_DH = 4;
     public final static int CMD_DO_ENC = 5;
     public final static int CMD_DO_DEC = 6;
+    public final static int CMD_FINALIZE = 7;
 
     Handler mUiHandler;
     Context mContext;
     WorkerCallback mCallback = null;
-    int mLineNum = 1;
 
     ITEEClient client = null;
     ITEEClient.IContext ctx = null;
-    ITEEClient.ISession ses = null;
+    ITEEClient.ISession session = null;
 
     private final Handler.Callback callback = new Handler.Callback() {
         @Override
@@ -63,27 +59,12 @@ public class Worker extends HandlerThread implements WorkerCallback {
             }
             Log.d(TAG, "handleMessage: " + msg.what);
             switch (msg.what){
-                case CMD_GENERATE_ROOT_KEY:
-//                    Log.i(TAG, "asked to generate root key");
-//
-//                    rootKey = new byte[OMS_MAX_RSA_MODULO_SIZE];
-//                    boolean status = Omnishare.generateRootKey(rootKey, mContext, mCallback);
-//
-//                    Log.d(TAG, "size of root key = " + rootKey.length);
-//
-//                    Message uiMsg = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
-//                            MainActivity.ID_CREATE_ROOT_KEY_BUTTON,
-//                            status? 1 : 0,
-//                            status? "\n" + (mLineNum++) + ")INFO: Root key generated\n" : "root key generation failed, try again\n");
-//                    mUiHandler.sendMessage(uiMsg);
-                    break;
 
                 case CMD_INIT:
-                    TAService.initTA(mContext);
-//                    Log.i(TAG, "asked to initialize");
-//
-//                    boolean status_init = Omnishare.omnishareInit(rootKey, mContext, mCallback);
-//
+                    Log.d(TAG, "handleMessage: asked to initialize TA");
+
+                    boolean status_init = TAService.initEnhancedKeystoreTA(mContext, mCallback);
+
 //                    Message uiMsg_init = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
 //                            MainActivity.ID_INI_BUTTON,
 //                            status_init? 1: 0,
@@ -92,10 +73,17 @@ public class Worker extends HandlerThread implements WorkerCallback {
 //                    mUiHandler.sendMessage(uiMsg_init);
                     break;
 
+                case CMD_INIT_DH:
+                    Log.d(TAG, "handleMessage: asked to initialize DH exchange");
+
+                    DHGenParameters params = TAService.initDHExchange(client, session);
+
+                    break;
+
                 case CMD_FINALIZE:
-//                    Log.i(TAG, "asked to finalize");
-//
-//                    Omnishare.omnishareFinalize(ctx, ses);
+                    Log.d(TAG, "handleMessage: asked to finalize");
+
+                    TAService.finalizeEnhancedKeystoreTA(ctx, session);
 //
 //                    Message uiMsg_finalize = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
 //                            MainActivity.ID_FINALIZE_BUTTON,
@@ -105,67 +93,11 @@ public class Worker extends HandlerThread implements WorkerCallback {
 //                    mUiHandler.sendMessage(uiMsg_finalize);
                     break;
 
-                case CMD_CREATE_DIR_KEY:
-//                    boolean status_create_dir_key = true;
-//                    if(keychain.getKeyCount() == 0){
-//                        try {
-//                            byte[] res = Omnishare.doCrypto(
-//                                    client, ctx, ses,
-//                                    Omnishare.CRYPTO_OP.CRYPTO_CREATE_DIR_KEY,
-//                                    null,
-//                                    keychain.getKeyCount(),
-//                                    keychain.getKeySize(),
-//                                    null
-//                            );
-//
-//                            if (res != null)keychain.append(res);
-//                            else status_create_dir_key = false;
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        } catch (BadParametersException e) {
-//                            e.printStackTrace();
-//                        } catch (BadFormatException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }else{
-//                        try {
-//                            byte[] res = Omnishare.doCrypto(
-//                                    client, ctx, ses,
-//                                    Omnishare.CRYPTO_OP.CRYPTO_CREATE_DIR_KEY,
-//                                    keychain.toByteArray(),
-//                                    keychain.getKeyCount(),
-//                                    keychain.getKeySize(),
-//                                    null
-//                            );
-//
-//                            if (res != null)keychain.append(res);
-//                            else status_create_dir_key = false;
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        } catch (BadParametersException e) {
-//                            e.printStackTrace();
-//                        } catch (BadFormatException e) {
-//                            e.printStackTrace();
-//                        }
-//
-//                    }
-//
-//                    Message uiMsg_createDirKey = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
-//                            MainActivity.ID_CREATE_ROOT_KEY_BUTTON,
-//                            status_create_dir_key? 1 : 0,
-//                            status_create_dir_key?
-//                                    (mLineNum++) + ")INFO: Directory Key Generated, Key Count: " + keychain.getKeyCount() + " Key Size:" + keychain.getKeySize() + "\n" :
-//                                    "ERROR: Directory Key Generation Failed\n");
-//
-//                    mUiHandler.sendMessage(uiMsg_createDirKey);
-
-                    break;
-
                 case CMD_DO_ENC:
 //                    boolean status_do_enc = true;
 //
 //                    try {
-//                        data = Omnishare.doCrypto(client, ctx, ses,
+//                        data = Omnishare.doCrypto(client, ctx, session,
 //                                Omnishare.CRYPTO_OP.CRYPTO_ENC_FILE,
 //                                keychain.toByteArray(),
 //                                keychain.getKeyCount(),
@@ -194,7 +126,7 @@ public class Worker extends HandlerThread implements WorkerCallback {
 //                    boolean status_do_dec = true;
 //
 //                    try {
-//                        data = Omnishare.doCrypto(client, ctx, ses,
+//                        data = Omnishare.doCrypto(client, ctx, session,
 //                                Omnishare.CRYPTO_OP.CRYPTO_DEC_FILE,
 //                                keychain.toByteArray(),
 //                                keychain.getKeyCount(),
@@ -256,7 +188,7 @@ public class Worker extends HandlerThread implements WorkerCallback {
     }
 
     @Override
-    public void updateSession(ITEEClient.ISession ses) {
-        this.ses = ses;
+    public void updateSession(ITEEClient.ISession session) {
+        this.session = session;
     }
 }

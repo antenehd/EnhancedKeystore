@@ -14,6 +14,10 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.apache.commons.lang3.SerializationUtils;
+
+import java.util.Arrays;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
@@ -47,17 +51,68 @@ public class ExchangeActivity extends AppCompatActivity {
                     }
                     break;
                 case Constants.MESSAGE_WRITE:
-                    byte[] writeBuf = (byte[]) msg.obj;
-                    // construct a string from the buffer
-                    String writeMessage = new String(writeBuf);
+                    DHExchangeMessage messageOut = msg.getData().getParcelable(Constants.DH_PARAMS);
+
+                    if (messageOut.getResult() == Constants.RESULT_SUCCESS) {
+                        if(messageOut.getType() == Constants.RESPOND_MESSAGE || messageOut.getType() == Constants.COMPLETE_MESSAGE) {
+                            DHExchangeResult result = msg.getData().getParcelable(Constants.DH_RESULT);
+                            keyHandle = result.getKeyID();
+                            if (messageOut.getType() == Constants.COMPLETE_MESSAGE) {
+                                Toast.makeText(ExchangeActivity.this, "Key exchange successful", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    } else {
+                        Toast.makeText(ExchangeActivity.this, "Key exchange failed", Toast.LENGTH_SHORT).show();
+                        finalizeKeyExchange();
+                    }
+
+                    byte[] writeBuf = SerializationUtils.serialize(messageOut);
+                    mBluetoothService.write(writeBuf);
                     break;
                 case Constants.MESSAGE_READ:
                     byte[] readBuf = (byte[]) msg.obj;
-                    // construct a string from the valid bytes in the buffer
-                    String readMessage = new String(readBuf, 0, msg.arg1);
-                    Toast message = Toast.makeText(ExchangeActivity.this, readMessage, Toast.LENGTH_SHORT);
-                    message.setGravity(Gravity.CENTER, 0, 0);
-                    message.show();
+                    DHExchangeMessage messageIn = SerializationUtils.deserialize(Arrays.copyOfRange(readBuf, 0, msg.arg1));
+                    if (messageIn.getResult() == Constants.RESULT_SUCCESS) {
+                        Handler workerHandler = mWorker.getHandler();
+                        Message workerMsg = null;
+                        Bundle bundle = null;
+                        switch (messageIn.getType()) {
+                            case Constants.INIT_MESSAGE:
+                                Log.d(TAG, "handleMessage: received init");
+                                workerMsg = workerHandler.obtainMessage(Worker.CMD_INIT);
+                                workerHandler.sendMessage(workerMsg);
+
+                                bundle = new Bundle();
+                                bundle.putParcelable(Constants.DH_PARAMS, messageIn.getParams());
+                                workerMsg = workerHandler.obtainMessage(Worker.CMD_RESPOND_DH);
+                                workerMsg.setData(bundle);
+                                workerHandler.sendMessage(workerMsg);
+
+                                break;
+                            case Constants.RESPOND_MESSAGE:
+                                Log.d(TAG, "handleMessage: received respond");
+                                bundle = new Bundle();
+                                bundle.putParcelable(Constants.DH_PARAMS, messageIn.getParams());
+                                workerMsg = workerHandler.obtainMessage(Worker.CMD_COMPLETE_DH);
+                                workerMsg.setData(bundle);
+                                workerHandler.sendMessage(workerMsg);
+
+                                break;
+                            case Constants.COMPLETE_MESSAGE:
+                                Log.d(TAG, "handleMessage: received complete");
+                                Toast.makeText(ExchangeActivity.this, "Key exchange successful", Toast.LENGTH_SHORT).show();
+
+                                break;
+                            default:
+                                Log.e(TAG, "handleMessage: did not understand received DH message");
+                                break;
+                        }
+                    } else {
+                        Toast.makeText(ExchangeActivity.this, "Key exchange failed", Toast.LENGTH_SHORT).show();
+                        finalizeKeyExchange();
+                    }
+
+
                     break;
                 case Constants.MESSAGE_DEVICE_NAME:
                     // save the connected device's name
@@ -78,6 +133,7 @@ public class ExchangeActivity extends AppCompatActivity {
     private BluetoothService mBluetoothService;
     private BluetoothAdapter mBluetoothAdapter;
     private Worker mWorker;
+    private byte[] keyHandle;
 
     @BindView(R.id.bt_status_value_tv) TextView mStatusTextView;
     @BindView(R.id.bt_connect_btn) Button mConnectButton;
@@ -160,7 +216,14 @@ public class ExchangeActivity extends AppCompatActivity {
         Message msg = workerHandler.obtainMessage(Worker.CMD_INIT);
         workerHandler.sendMessage(msg);
 
-        msg = workerHandler.obtainMessage(Worker.CMD_FINALIZE);
+        msg = workerHandler.obtainMessage(Worker.CMD_INIT_DH);
+        workerHandler.sendMessage(msg);
+
+    }
+
+    private void finalizeKeyExchange() {
+        Handler workerHandler = mWorker.getHandler();
+        Message msg = workerHandler.obtainMessage(Worker.CMD_FINALIZE);
         workerHandler.sendMessage(msg);
 
     }

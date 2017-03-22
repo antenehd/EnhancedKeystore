@@ -10,12 +10,11 @@ import java.util.UUID;
 
 public class TAServiceUtils {
     private static final String TAG = TAServiceUtils.class.getSimpleName();
-    private static final String ENHANCED_KEY_STORE_TA_UUID = "316cd877-ebae-59d2-6766-6cce17e1d471";
 
 
     public static UUID getUUID() {
-        Log.d(TAG, "getUUID from String: " + UUID.fromString(ENHANCED_KEY_STORE_TA_UUID).toString());
-        return UUID.fromString(ENHANCED_KEY_STORE_TA_UUID);
+        // Return UUID of EnhancedKeystore TA
+        return new UUID(0x316cd877ebae59d2L, 0xa7666cce17e1d471L);
     }
 
 

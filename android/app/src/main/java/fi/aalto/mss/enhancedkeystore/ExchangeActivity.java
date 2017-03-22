@@ -160,6 +160,9 @@ public class ExchangeActivity extends AppCompatActivity {
         Message msg = workerHandler.obtainMessage(Worker.CMD_INIT);
         workerHandler.sendMessage(msg);
 
+        msg = workerHandler.obtainMessage(Worker.CMD_FINALIZE);
+        workerHandler.sendMessage(msg);
+
     }
 
 }

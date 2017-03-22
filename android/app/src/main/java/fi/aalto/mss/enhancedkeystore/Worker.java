@@ -16,6 +16,7 @@
 package fi.aalto.mss.enhancedkeystore;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -23,7 +24,6 @@ import android.os.Message;
 import android.util.Log;
 
 import fi.aalto.ssg.opentee.ITEEClient;
-import fi.aalto.mss.enhancedkeystore.TAServiceUtils.DHGenParameters;
 
 /**
  * Example code to deal with remote TEE service in a separate thread.
@@ -36,7 +36,7 @@ public class Worker extends HandlerThread implements WorkerCallback {
     public final static int CMD_INIT = 1;
     public final static int CMD_INIT_DH = 2;
     public final static int CMD_RESPOND_DH = 3;
-    public final static int CMD_FINALIZE_DH = 4;
+    public final static int CMD_COMPLETE_DH = 4;
     public final static int CMD_DO_ENC = 5;
     public final static int CMD_DO_DEC = 6;
     public final static int CMD_FINALIZE = 7;
@@ -65,32 +65,84 @@ public class Worker extends HandlerThread implements WorkerCallback {
 
                     boolean status_init = TAService.initEnhancedKeystoreTA(mContext, mCallback);
 
-//                    Message uiMsg_init = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
-//                            MainActivity.ID_INI_BUTTON,
-//                            status_init? 1: 0,
-//                            status_init? (mLineNum++) + ")INFO: Environment initialized.\n" : " fail to initialize\n");
-//
-//                    mUiHandler.sendMessage(uiMsg_init);
                     break;
 
                 case CMD_INIT_DH:
                     Log.d(TAG, "handleMessage: asked to initialize DH exchange");
 
-                    DHGenParameters params = TAService.initDHExchange(client, session);
+                    DHGenParameters paramsOut = TAService.initDHExchange(client, ctx, session);
+                    if (paramsOut!= null) {
+                        Log.d(TAG, "handleMessage: successfully initiated exchange");
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_WRITE);
+                        Bundle bundle = new Bundle();
+                        DHExchangeMessage initMessage = new DHExchangeMessage(Constants.INIT_MESSAGE, Constants.RESULT_SUCCESS, paramsOut);
+                        bundle.putParcelable(Constants.DH_PARAMS, initMessage);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    } else {
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_TOAST);
+                        Bundle bundle = new Bundle();
+                        bundle.putString(Constants.TOAST, "Initialization failed");
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    }
 
                     break;
+
+                case CMD_RESPOND_DH:
+                    Log.d(TAG, "handleMessage: asked to respond to DH exchange");
+                    DHGenParameters paramsIn = msg.getData().getParcelable(Constants.DH_PARAMS);
+                    DHExchangeResult resultResp = TAService.respondDHExchange(client, ctx, session, paramsIn);
+                    if (resultResp != null) {
+                        Log.d(TAG, "handleMessage: successfully responded to init");
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_WRITE);
+                        Bundle bundle = new Bundle();
+                        DHExchangeMessage responseMessage = new DHExchangeMessage(Constants.RESPOND_MESSAGE, Constants.RESULT_SUCCESS, resultResp.getDhParams());
+                        bundle.putParcelable(Constants.DH_PARAMS, responseMessage);
+                        bundle.putParcelable(Constants.DH_RESULT, resultResp);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    } else {
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_WRITE);
+                        Bundle bundle = new Bundle();
+                        DHExchangeMessage responseMessage = new DHExchangeMessage(Constants.RESPOND_MESSAGE, Constants.RESULT_FAILURE, paramsIn);
+                        bundle.putParcelable(Constants.DH_PARAMS, responseMessage);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    }
+
+                    break;
+
+                case CMD_COMPLETE_DH:
+                    Log.d(TAG, "handleMessage: asked to complete DH exchange");
+                    DHGenParameters paramsResp = msg.getData().getParcelable(Constants.DH_PARAMS);
+                    DHExchangeResult resultCompl = TAService.completeDHExchange(client, ctx, session, paramsResp);
+                    if (resultCompl != null) {
+                        Log.d(TAG, "handleMessage: successfully completed exchange");
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_WRITE);
+                        Bundle bundle = new Bundle();
+                        DHExchangeMessage completeMessage = new DHExchangeMessage(Constants.COMPLETE_MESSAGE, Constants.RESULT_SUCCESS, resultCompl.getDhParams());
+                        bundle.putParcelable(Constants.DH_PARAMS, completeMessage);
+                        bundle.putParcelable(Constants.DH_RESULT, resultCompl);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    } else {
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_WRITE);
+                        Bundle bundle = new Bundle();
+                        DHExchangeMessage completeMessage = new DHExchangeMessage(Constants.RESPOND_MESSAGE, Constants.RESULT_FAILURE, paramsResp);
+                        bundle.putParcelable(Constants.DH_PARAMS, completeMessage);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    }
+
+                    break;
+
 
                 case CMD_FINALIZE:
                     Log.d(TAG, "handleMessage: asked to finalize");
 
                     TAService.finalizeEnhancedKeystoreTA(ctx, session);
-//
-//                    Message uiMsg_finalize = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
-//                            MainActivity.ID_FINALIZE_BUTTON,
-//                            1,
-//                            (mLineNum++) + ")INFO: Environment finalized.\n");
-//
-//                    mUiHandler.sendMessage(uiMsg_finalize);
+
                     break;
 
                 case CMD_DO_ENC:

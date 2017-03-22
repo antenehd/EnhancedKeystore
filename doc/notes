@@ -41,25 +41,26 @@
 
          - INITIATE_DH_CMD( 0x00000001 ):
 
-              (output)  params[0].memref.buffer = gx              where 'gx' is the public shared secrete key generated (g^x mod p)
+              (output)  params[0].memref.buffer = gx              where 'gx' is the public shared secrete key generated (g^x mod p). Size of 
+	                                                          buffer should be 256 bytes (2048 bits)
                
-              (output)  params[1].memref.buffer = g               where g is the generator
+              (output)  params[1].memref.buffer = g               where g is the generator. Size of buffer should be 4 bytes
 
-              (output)  params[2].memref.buffer = p               where p is the prime
+              (output)  params[2].memref.buffer = p               where p is the prime. size of buffer should be 256 Bytes.
 
-              (input)   params[3].value.b = key_length
+              (input)   params[3].value.b = key_length            this is uint32_t value
 
 
          - RESPOND_DH_CMD ( 0x00000002 ) :
 
               (inout)  params[0].memref.buffer = gx(input) & gy(output)          where 'gx' is the public shared secrete key provided by remote end (g^x mod p) and 'gy' is the response public
-                                                                                 shared key generated (g^y mod p)
+                                                                                 shared key generated (g^y mod p). Size of buffer should be 256 bytes (2048 bits)
                
-              (input)  params[1].memref.buffer = g                               where g is the generator
+              (input)  params[1].memref.buffer = g                               where g is the generator. Size of buffer should be 4 bytes
 
-              (input)  params[2].memref.buffer = p                               where p is the prime
+              (input)  params[2].memref.buffer = p                               where p is the prime. size of buffer should be 256 Bytes.
 
-              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when input key_length should be set in the first four octets. when output
+              (inout)  params[3].memref.buffer =  key_length key_id_b            size of buffer should be 8 octets. when 'input' key_length should be set in the first four octets. when output
 																				 the key_id_b should set all 8 octets
 
 
@@ -67,11 +68,51 @@
          - COMPLETE_DH_CMD ( 0x00000003 ) :
 
               (input)  params[0].memref.buffer = gy              where 'gy' is the public shared secrete key provided by remote end (g^y mod p)
-
+								 size of buffer should be 256 Bytes.
+								 
               (output)  params[1].memref.buffer = key_id_a        size of the buffer should be 8 octects
 
-# sessionContext would be NULL. Since the TA design is one session per instance there wouldn't be any conflict of sessionContext so there is no need for session identifier.
 
-# Maximum Key length supported is 2048. Generator (g) should always be 4 bytes(octets) long.
+	
+         - ENCRYPT_AES_CMD ( 0x00000004 ) :
 
-#key id is 8 bytes long
+              (input)  params[0].memref.buffer = data to be encrypted
+               
+              (output)  params[1].memref.buffer = buffer where encrypted data is stored. size of this buffer should be equal to the size
+	                                          of the above buffer (params[0].memref.buffer)
+	
+              (output)  params[2].memref.buffer = Initial vector( initial counter value ). size of this buffer should be 16 bytes.
+
+              (input)  params[3].memref.buffer =  key_id to be used for the encryption. size of this buffer should be 8 bytes.
+
+	
+	 - DECRYPT_AES_CMD ( 0x00000005 ) :
+
+              (input)  params[0].memref.buffer = data to be decrypted
+
+               
+              (output)  params[1].memref.buffer = buffer where decrypted data is stored.size of this buffer should be equal to the size
+	                                          of the above buffer (params[0].memref.buffer)
+	
+              (input)  params[2].memref.buffer = Initial vector( initial counter value ). size of this buffer should be 16 bytes.
+
+              (input)  params[3].memref.buffer =  key_id to be used for the decryption. size of this buffer should be 8 bytes.
+
+# sessionContext would be NULL. The TA design is such that there is one session per instance therefore there is no need to set sessionContext to identify the session with in the instance.
+
+# Key length supported is AES 256. Generator (g) should always be 4 bytes(octets) long and the prime should always be 2048 bit long.
+
+# Only AES CTR algorithm is supported for syymetric encryption and decryption.
+
+# Syymetric key identifier is 8 bytes long.
+
+# A new session should be opened before invoking the following commands:
+	
+	- INITIATE_DH_CMD
+	- RESPOND_DH_CMD
+	- ENCRYPT_AES_CMD
+	- DECRYPT_AES_CMD
+
+# Command COMPLETE_DH_CMD should be invoked with in the same session as the command INITIATE_DH_CMD
+
+

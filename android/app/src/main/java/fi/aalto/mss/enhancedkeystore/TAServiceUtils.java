@@ -2,6 +2,7 @@ package fi.aalto.mss.enhancedkeystore;
 
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 
 /**
@@ -17,28 +18,10 @@ public class TAServiceUtils {
         return new UUID(0x316cd877ebae59d2L, 0xa7666cce17e1d471L);
     }
 
-
-    public class DHGenParameters {
-        private int generator;
-        private int prime;
-        private int publicKey;
-
-        public DHGenParameters(int generator, int prime, int publicKey) {
-            this.generator = generator;
-            this.prime = prime;
-            this.publicKey = publicKey;
-        }
-
-        public int getGenerator() {
-            return generator;
-        }
-
-        public int getPrime() {
-            return prime;
-        }
-
-        public int getPublicKey() {
-            return publicKey;
-        }
+    public static byte[] getUtilBuffer(int keyLength, int bufferLength) {
+        byte[] util = new byte[bufferLength];
+        // Fill first 4 bytes of util with keyLength
+        return ByteBuffer.allocate(bufferLength).putInt(keyLength).array();
     }
+
 }

@@ -35,7 +35,8 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -DANDROID -g -O0 -DTA_PLUGIN
 
-LOCAL_SHARED_LIBRARIES := libc libdl libInternalApi libcrypto_test libstorage_test
+LOCAL_SHARED_LIBRARIES := libc libdl libInternalApi libcrypto_test libstorage_test 
+LOCAL_LDLIBS := -llog
 
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_LDFLAGS := -Wl,--hash-style=sysv

@@ -8,7 +8,6 @@ import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -58,12 +57,14 @@ public class ExchangeActivity extends AppCompatActivity {
                             DHExchangeResult result = msg.getData().getParcelable(Constants.DH_RESULT);
                             keyHandle = result.getKeyID();
                             if (messageOut.getType() == Constants.COMPLETE_MESSAGE) {
+                                doKeyConfirmation();
                                 Toast.makeText(ExchangeActivity.this, "Key exchange successful", Toast.LENGTH_SHORT).show();
+                                finalizeTASession();
                             }
                         }
                     } else {
                         Toast.makeText(ExchangeActivity.this, "Key exchange failed", Toast.LENGTH_SHORT).show();
-                        finalizeKeyExchange();
+                        finalizeTASession();
                     }
 
                     byte[] writeBuf = SerializationUtils.serialize(messageOut);
@@ -79,9 +80,7 @@ public class ExchangeActivity extends AppCompatActivity {
                         switch (messageIn.getType()) {
                             case Constants.INIT_MESSAGE:
                                 Log.d(TAG, "handleMessage: received init");
-                                workerMsg = workerHandler.obtainMessage(Worker.CMD_INIT);
-                                workerHandler.sendMessage(workerMsg);
-
+                                initTASession();
                                 bundle = new Bundle();
                                 bundle.putParcelable(Constants.DH_PARAMS, messageIn.getParams());
                                 workerMsg = workerHandler.obtainMessage(Worker.CMD_RESPOND_DH);
@@ -100,8 +99,9 @@ public class ExchangeActivity extends AppCompatActivity {
                                 break;
                             case Constants.COMPLETE_MESSAGE:
                                 Log.d(TAG, "handleMessage: received complete");
+                                doKeyConfirmation();
                                 Toast.makeText(ExchangeActivity.this, "Key exchange successful", Toast.LENGTH_SHORT).show();
-
+                                finalizeTASession();
                                 break;
                             default:
                                 Log.e(TAG, "handleMessage: did not understand received DH message");
@@ -109,7 +109,7 @@ public class ExchangeActivity extends AppCompatActivity {
                         }
                     } else {
                         Toast.makeText(ExchangeActivity.this, "Key exchange failed", Toast.LENGTH_SHORT).show();
-                        finalizeKeyExchange();
+                        finalizeTASession();
                     }
 
 
@@ -123,6 +123,10 @@ public class ExchangeActivity extends AppCompatActivity {
                 case Constants.MESSAGE_TOAST:
                     Toast.makeText(ExchangeActivity.this, msg.getData().getString(Constants.TOAST),
                             Toast.LENGTH_SHORT).show();
+                    break;
+
+                case Constants.MESSAGE_KEY_CONFIRMATION:
+                    showKeyConfirmation(msg.getData().getByteArray(Constants.CIPHER_TEXT));
                     break;
             }
         }
@@ -138,6 +142,7 @@ public class ExchangeActivity extends AppCompatActivity {
     @BindView(R.id.bt_status_value_tv) TextView mStatusTextView;
     @BindView(R.id.bt_connect_btn) Button mConnectButton;
     @BindView(R.id.bt_init_exchange_btn) Button mExchangeInitButton;
+    @BindView(R.id.tv_key_confirmation) TextView mKeyConfirmationTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -165,6 +170,8 @@ public class ExchangeActivity extends AppCompatActivity {
         mExchangeInitButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                mKeyConfirmationTextView.setText("");
+                initTASession();
                 initKeyExchange();
             }
         });
@@ -211,21 +218,48 @@ public class ExchangeActivity extends AppCompatActivity {
     }
 
     private void initKeyExchange() {
+        Handler workerHandler = mWorker.getHandler();
+        Message msg = workerHandler.obtainMessage(Worker.CMD_INIT_DH);
+        workerHandler.sendMessage(msg);
+    }
 
+    private void initTASession() {
         Handler workerHandler = mWorker.getHandler();
         Message msg = workerHandler.obtainMessage(Worker.CMD_INIT);
         workerHandler.sendMessage(msg);
-
-        msg = workerHandler.obtainMessage(Worker.CMD_INIT_DH);
-        workerHandler.sendMessage(msg);
-
     }
 
-    private void finalizeKeyExchange() {
+    private void finalizeTASession() {
         Handler workerHandler = mWorker.getHandler();
         Message msg = workerHandler.obtainMessage(Worker.CMD_FINALIZE);
         workerHandler.sendMessage(msg);
 
+    }
+
+    private void doKeyConfirmation() {
+        Handler workerHandler = mWorker.getHandler();
+        Bundle bundle = new Bundle();
+        bundle.putByteArray(Constants.KEY_HANDLE, keyHandle);
+        Message workerMsg = workerHandler.obtainMessage(Worker.CMD_DO_ENC);
+        workerMsg.setData(bundle);
+        workerHandler.sendMessage(workerMsg);
+    }
+
+    private void showKeyConfirmation(byte[] cipher) {
+        String confirmation = bytesToHex(cipher);
+
+        mKeyConfirmationTextView.setText(confirmation);
+    }
+
+    public static String bytesToHex(byte[] bytes) {
+        final char[] hexArray = "0123456789ABCDEF".toCharArray();
+        char[] hexChars = new char[bytes.length * 2];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
     }
 
 }

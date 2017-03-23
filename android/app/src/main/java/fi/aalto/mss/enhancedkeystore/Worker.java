@@ -80,6 +80,7 @@ public class Worker extends HandlerThread implements WorkerCallback {
                         uiMsg.setData(bundle);
                         mUiHandler.sendMessage(uiMsg);
                     } else {
+                        Log.d(TAG, "handleMessage: init exchange failed");
                         Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_TOAST);
                         Bundle bundle = new Bundle();
                         bundle.putString(Constants.TOAST, "Initialization failed");
@@ -146,31 +147,20 @@ public class Worker extends HandlerThread implements WorkerCallback {
                     break;
 
                 case CMD_DO_ENC:
-//                    boolean status_do_enc = true;
-//
-//                    try {
-//                        data = Omnishare.doCrypto(client, ctx, session,
-//                                Omnishare.CRYPTO_OP.CRYPTO_ENC_FILE,
-//                                keychain.toByteArray(),
-//                                keychain.getKeyCount(),
-//                                keychain.getKeySize(),
-//                                data);
-//                    } catch (BadParametersException e) {
-//                        e.printStackTrace();
-//                        status_do_enc = false;
-//                    } catch (BadFormatException e) {
-//                        e.printStackTrace();
-//                        status_do_enc = false;
-//                    }
-//
-//                    Message uiMsg_doEnc = mUiHandler.obtainMessage(MainActivity.CMD_UPDATE_LOGVIEW,
-//                            MainActivity.ID_DO_ENCRY_BUTTON,
-//                            status_do_enc? 1 : 0,
-//                            status_do_enc?
-//                                    (mLineNum++) + ")INFO: Encryption Complete, Key Count: " + keychain.getKeyCount() + " Key Size:" + keychain.getKeySize() + "\n" +  "Encrypted buffer: " + HexUtils.encodeHexString(data) + "\n":
-//                                    "ERROR: File Encryption Failed\n\n");
-//
-//                    mUiHandler.sendMessage(uiMsg_doEnc);
+                    Log.d(TAG, "handleMessage: asked to encrypt");
+
+                    byte[] keyHandle = msg.getData().getByteArray(Constants.KEY_HANDLE);
+                    byte[] cipherText = TAService.encryptData(client, ctx, session, keyHandle);
+
+                    if (cipherText != null) {
+                        Log.d(TAG, "handleMessage: successfully encrypted data");
+
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_KEY_CONFIRMATION);
+                        Bundle bundle = new Bundle();
+                        bundle.putByteArray(Constants.CIPHER_TEXT, cipherText);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    }
 
                     break;
 

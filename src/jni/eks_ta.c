@@ -19,7 +19,8 @@
 #define BUFFER_DECRYPTED_SIZE	   AES_BLOCK_SIZE * 16
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
-#define ADR_LOG( ... )   __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", __VA_ARGS__)
+
+#define ADR_LOG( ... ) __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", __VA_ARGS__)
 
 uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
 
@@ -66,6 +67,8 @@ uint32_t key_length;
 static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id )
 {
 
+	ADR_LOG("validate param type");
+
 	/* Check parameter type if command is INITIATE_DH_CMD*/
 	if( INITIATE_DH_CMD == command_id ){
 
@@ -103,7 +106,7 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_INPUT != TEE_PARAM_TYPE_GET(paramTypes, 1) ){
+		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET(paramTypes, 1) ){
 
 			OT_LOG(LOG_ERR, "For command RESPOND_DH_CMD second parameter type is incorrect");
 			return TEE_ERROR_BAD_PARAMETERS;
@@ -115,7 +118,7 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_INOUT != TEE_PARAM_TYPE_GET(paramTypes, 3) ){
+		if ( TEE_PARAM_TYPE_VALUE_INPUT != TEE_PARAM_TYPE_GET(paramTypes, 3) ){
 
 			OT_LOG(LOG_ERR, "For command RESPOND_DH_CMD fourth parameter type is incorrect");
 			return TEE_ERROR_BAD_PARAMETERS;
@@ -387,6 +390,8 @@ TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, 
 /*Used to process initialize command */
 TEE_Result init_cmd( TEE_Param params[4] ){
 
+	ADR_LOG("init DH");
+
 	TEE_Result ret;
 	uint8_t public_value[ PRIME_SIZE ] = {0};
 	uint32_t pb_len = PRIME_SIZE;
@@ -426,6 +431,8 @@ TEE_Result init_cmd( TEE_Param params[4] ){
 /*Used to process respond command */
 TEE_Result  respond_cmd( TEE_Param params[4] ){
 
+	ADR_LOG("respond DH");
+
 	TEE_Result ret;
 	uint32_t key_length;
 	uint8_t key_id[ 8 ] = { 0 };
@@ -441,52 +448,54 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	TEE_ObjectHandle trs_secret_key_store_hdl;		/*Holds the final shared secrete key which is of the requested size*/
 
 	/*retrieve key_len from parameter */
-	TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
+	key_length = params[3].value.a;
+	//TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
 
 	if( SUPPORTED_KEY_LEN != key_length )					
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	/*retrieve generator value*/
-	if( GEN_SIZE != params[1].memref.size )	
-		return TEE_ERROR_BAD_PARAMETERS;
-	TEE_MemMove( generator_received, params[1].memref.buffer, GEN_SIZE );
+	//if( GEN_SIZE != params[1].memref.size )	
+	//	return TEE_ERROR_BAD_PARAMETERS;
+	TEE_MemMove( generator_received, &params[3].value.b, GEN_SIZE );
 
 	/*retrieve public value*/
 	public_received_len = params[0].memref.size;
 	TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );		
-	ADR_LOG( "1");
+
 	/*retrieve prime value*/
-	prime_received_len = params[2].memref.size;
-	TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
+	//prime_received_len = params[2].memref.size;
+	//TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
+	prime_received_len = PRIME_SIZE;
+	prime_received = prime;
 	if(  PRIME_SIZE != prime_received_len ){
 
 		OT_LOG(LOG_INFO, " Prime size not supported. Only 2048 bit prime supported.\n" );
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
-	        
-	ADR_LOG( "2");
+
 	/*create transient object for DH*/
 	ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_pub_key_obj_hdl );
 	if( TEE_SUCCESS != ret )
 		return ret;
-	ADR_LOG( "3");					
+					
 	/*Generate public key*/
 	if( TEE_SUCCESS != ( ret = generate_public_key( PRIME_SIZE * 8, prime_received, prime_received_len, generator_received ) ) )
 		return ret;
-	ADR_LOG( "4");
+
 	/*Get public value*/
 	ret = TEE_GetObjectBufferAttribute( trs_pub_key_obj_hdl, TEE_ATTR_DH_PUBLIC_VALUE, public_value, &pb_len );
 	if( TEE_SUCCESS != ret )
 		return ret;	
-	ADR_LOG( "5");
+
 	/*Set public value in to shared memory for Client application*/
 	TEE_MemMove( params[0].memref.buffer,  public_value, pb_len );
-	ADR_LOG( "6");
+
 	/*Generate a 2048 bit shared secret key*/
 	ret = generate_shared_secret( &trs_secret_key_obj_hdl, PRIME_SIZE * 8, public_value_received, public_received_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
-	ADR_LOG( "7");
+
 	/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
 	ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store_hdl );
 
@@ -494,9 +503,9 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	ret = creat_prs_obj( key_id, trs_secret_key_store_hdl );
 	if( TEE_SUCCESS != ret )
 		return ret;
-	ADR_LOG( "8");
+
 	/*set key_id into shared memory*/
-	TEE_MemMove( params[3].memref.buffer, key_id, 8 );
+	TEE_MemMove( params[1].memref.buffer, key_id, 8 );
 
 	TEE_FreeTransientObject( trs_pub_key_obj_hdl );
 
@@ -505,6 +514,8 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 
 /*Used to process complete command */
 TEE_Result  complete_cmd( TEE_Param params[4] ){
+
+	ADR_LOG("complete DH");
 
 	TEE_Result ret;
 	uint8_t key_id[ 8 ] = { 0 };

@@ -1,3 +1,5 @@
 .*
 *~
 !/.gitignore
+src/obj/*
+src/libs/*

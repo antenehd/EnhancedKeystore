@@ -19,6 +19,13 @@
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
 
+struct session_ctx {
+	uint8_t session_type;
+};
+
+#define EKS_SESS    0x25
+
+
 uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
 
 uint8_t prime[ PRIME_SIZE] = {	0xD3,0x37,0xA9,0x85,0x96,0xF8,0x1E,0x8B,0x88,0xC3,0x1B,0x07,
@@ -606,7 +613,8 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 			/*encrypt plain text*/
 			ret = TEE_CipherDoFinal( operation, buffer_plain_text, copy_size, buffer_encrypted, &encrypted_size );
 			if( TEE_SUCCESS != ret )
-				return ret;			
+				return ret;	
+		OT_LOG(LOG_DEBUG, "Inside encrypt: enccrypt size = %u", encrypted_size);		
 		}
 		
 		/*copy encrypted data to output parameter buffer*/
@@ -718,7 +726,14 @@ void TA_EXPORT TA_DestroyEntryPoint(void)
 /*Entry point when open session request is received*/
 TEE_Result TA_EXPORT TA_OpenSessionEntryPoint(uint32_t paramTypes, TEE_Param params[4], void **sessionContext){
 
+	struct session_ctx *new_session_ctx = NULL;
+
 	OT_LOG(LOG_INFO, "Calling Open session entry point for EKS_TA");
+	
+	new_session_ctx = TEE_Malloc(sizeof(struct session_ctx), 0);
+	new_session_ctx->session_type = EKS_SESS;
+
+	*sessionContext = new_session_ctx;
 
    	return TEE_SUCCESS;
 }
@@ -726,7 +741,11 @@ TEE_Result TA_EXPORT TA_OpenSessionEntryPoint(uint32_t paramTypes, TEE_Param par
 /*Entry point when close session request is received*/
 void TA_EXPORT TA_CloseSessionEntryPoint(void *sessionContext){
 
+	struct session_ctx *session_ctx = sessionContext;
+
 	OT_LOG(LOG_INFO, "Calling Close session entry point for EKS_TA");
+
+	TEE_Free(session_ctx);
 }
 
 /*Entry point when command is received*/

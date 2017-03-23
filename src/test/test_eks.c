@@ -20,7 +20,7 @@
 
 #define  KEY_LEN_256	256
 
-#define  PLAIN_TXT_SIZE 130
+#define  PLAIN_TXT_SIZE 29
 #define AES_BLOCK_SIZE  16
 
 uint8_t gx_buffer[ BUFF_SIZE ] = {0};
@@ -352,7 +352,7 @@ int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypt
 
 int test_encry_decr( uint8_t *plain_txt, uint8_t *decrypted, uint32_t size){
 
-	int i, j;
+	int i;
 
 	PRIn("\nTesting Encryption Decryption operation");	
 	if( ( NULL == plain_txt ) || ( NULL == decrypted ) )
@@ -380,12 +380,14 @@ static int test_eks()
 	uint32_t key_size= KEY_LEN_256; 
 
 	TEEC_Context context;
-	TEEC_Session session, session_2;
+	TEEC_Session session_init, session_res, session_enc, session_dec;
 	TEEC_Result ret;
 	TEEC_Operation operation = {0};
 	TEEC_Operation operation_2 = {0};
 
-	uint8_t plain_txt[ PLAIN_TXT_SIZE ] = { 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5' };
+	/*uint8_t plain_txt[ PLAIN_TXT_SIZE ] = { 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5' };*/
+
+	uint8_t plain_txt[] = "fi.aalto.mss.enhancedkeystore";
 
 	uint8_t encrypted[ PLAIN_TXT_SIZE ] = { 0 }; 
 	uint8_t decrypted[ PLAIN_TXT_SIZE ] = { 0 }; 
@@ -407,7 +409,7 @@ static int test_eks()
 	
 	/* Open session */
 	PRI("Openning session: ");
-	ret = TEEC_OpenSession( &context, &session, &uuid, connection_method, NULL, &operation, &return_origin);
+	ret = TEEC_OpenSession( &context, &session_init, &uuid, connection_method, NULL, &operation, &return_origin);
 
 	if( ret != TEE_SUCCESS ){
 
@@ -417,7 +419,7 @@ static int test_eks()
 	PRIn("opened");
 
 	/*Send init command*/
-	if ( -1 == send_init( key_size, &session, &context, &return_origin ) ){
+	if ( -1 == send_init( key_size, &session_init, &context, &return_origin ) ){
 		
 		PRIn( "Failed to send init command " );
 		return -1;
@@ -431,7 +433,7 @@ static int test_eks()
 	/* Open session */
 	PRIn("\n************************** APPLICATION B ******************************************************************************** \n");
 	PRI("Openning session for RESPOND_DH_CMD: ");
-	ret = TEEC_OpenSession( &context, &session_2, &uuid, connection_method, NULL, &operation_2, &return_origin);
+	ret = TEEC_OpenSession( &context, &session_res, &uuid, connection_method, NULL, &operation_2, &return_origin);
 	
 	if( ret != TEE_SUCCESS ){
 	
@@ -441,7 +443,7 @@ static int test_eks()
 	PRIn("opened");
 
 	/*Send respond command*/
-	if( -1 == send_respond( key_size, &session_2, &context, &return_origin ) ){
+	if( -1 == send_respond( key_size, &session_res, &context, &return_origin ) ){
 
 		PRIn( " Failed to send respond command " );
 		return -1;
@@ -450,14 +452,14 @@ static int test_eks()
 	/*check return of respond command*/
 	check_ret_resp( key_size );
 
-	TEEC_CloseSession ( &session_2 );
+	TEEC_CloseSession ( &session_res );
 
 	PRIn("\n************************** END OF APPLICATION B ******************************************************************************** \n");
 
 	/************************ END OF APPLICATION B *****************************************************************************************/
 
 	/*Send complet command*/
-	if( -1 == send_complet( key_size, &session, &context, &return_origin ) ){
+	if( -1 == send_complet( key_size, &session_init, &context, &return_origin ) ){
 
 		PRIn( " Failed to send complet command " );
 		return -1;
@@ -466,12 +468,12 @@ static int test_eks()
 	PRIn( "TEST: KEY_ID = %02x%02x%02x%02x%02x%02x%02x%02x\n", key_len_id[0], key_len_id[1], key_len_id[2], key_len_id[3], key_len_id[4], key_len_id[5], key_len_id[6], key_len_id[7] );	
 	/*check for public value*/
 
-	TEEC_CloseSession ( &session );
+	TEEC_CloseSession ( &session_init );
 
 	/*check encryption*/
 	/* Open session */
 	PRI("\nOpenning session for ENCRYPT_AES_CMD: ");
-	ret = TEEC_OpenSession( &context, &session, &uuid, connection_method, NULL, NULL, &return_origin);
+	ret = TEEC_OpenSession( &context, &session_enc, &uuid, connection_method, NULL, NULL, &return_origin);
 	
 	if( ret != TEE_SUCCESS ){
 	
@@ -480,18 +482,18 @@ static int test_eks()
 	}
 	PRIn("opened");
 	/*Send encrypt command*/
-	if( -1 == encrypt_data( key_len_id, plain_txt, encrypted, initial_vector, PLAIN_TXT_SIZE, &session, &context, &return_origin) ){
+	if( -1 == encrypt_data( key_len_id, plain_txt, encrypted, initial_vector, PLAIN_TXT_SIZE, &session_enc, &context, &return_origin) ){
 
 		PRIn( " Encryption failed." );
 		return -1;
 	}	
 
-	TEEC_CloseSession ( &session );
+	TEEC_CloseSession ( &session_enc );
 
 	/*check decryption*/
 	/* Open session */
 	PRI("\nOpenning session for DECRYPT_AES_CMD: ");
-	ret = TEEC_OpenSession( &context, &session, &uuid, connection_method, NULL, NULL, &return_origin);
+	ret = TEEC_OpenSession( &context, &session_dec, &uuid, connection_method, NULL, NULL, &return_origin);
 	
 	if( ret != TEE_SUCCESS ){
 	
@@ -500,13 +502,13 @@ static int test_eks()
 	}
 	PRIn("opened");
 	/*Send decrypt command*/
-	if( -1 == decrypt_data( key_len_id, encrypted, decrypted, initial_vector, PLAIN_TXT_SIZE, &session, &context, &return_origin ) ){
+	if( -1 == decrypt_data( key_len_id, encrypted, decrypted, initial_vector, PLAIN_TXT_SIZE, &session_dec, &context, &return_origin ) ){
 
 		PRIn( "Decryption failed." );
 		return -1;
 	}	
 
-	TEEC_CloseSession ( &session );
+	TEEC_CloseSession ( &session_dec );
 	
 	if( -1 == test_encry_decr( plain_txt, decrypted, PLAIN_TXT_SIZE) )
 		PRIn("Test for encryption and decryption failed.");

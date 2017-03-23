@@ -1,5 +1,4 @@
-/home/andro/ks/EnhancedKeystore/src/obj/local/armeabi-v7a/objs/eks_ta/eks_ta.o: \
-  /home/andro/ks/EnhancedKeystore/src/jni/eks_ta.c \
+./obj/local/armeabi-v7a/objs/eks_ta/eks_ta.o: jni/eks_ta.c \
   /home/andro/Open-TEE/emulator/include/tee_internal_api.h \
   /home/andro/Open-TEE/emulator/include/../internal_api/tee_data_types.h \
   /home/andro/Open-TEE/emulator/include/../internal_api/../include/tee_shared_data_types.h \

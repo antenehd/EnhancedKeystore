@@ -19,7 +19,7 @@
 #define BUFFER_DECRYPTED_SIZE	   AES_BLOCK_SIZE * 16
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
-#define ADR_LOG( str )   __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", "%s", str)
+#define ADR_LOG( ... )   __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", __VA_ARGS__)
 
 uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
 

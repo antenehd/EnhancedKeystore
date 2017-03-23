@@ -116,24 +116,31 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 
 	uint32_t gx_size = BUFF_SIZE;
 	uint32_t p_size = BUFF_SIZE;
+	uint32_t gen;
 
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT  );
-	reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_INPUT );
+	//reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_INPUT );
 	reg_shared_memory( context, &p_out, p_buffer, p_size, TEEC_MEM_INPUT );
-	reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT );
+	//reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT );
+	reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT );
 	
 	/*set operation parameter for respond DH*/	
 	params[0].memref.parent = &gx;
 	params[0].memref.size = gx_size;
-	params[1].memref.parent = &g_out;
-	params[1].memref.size = g_size;
+	//params[1].memref.parent = &g_out;
+	//params[1].memref.size = g_size;
+	params[1].memref.parent = &k_len_id_inout;
+	params[1].memref.size = key_len_id_size;
 	params[2].memref.parent = &p_out;
 	params[2].memref.size = p_size;
-	params[3].memref.parent = &k_len_id_inout;
-	params[3].memref.size =  key_len_id_size;
-	memcpy( key_len_id, &key_size, 4 );
-	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE), params );	
+	//params[3].memref.parent = &k_len_id_inout;
+	//params[3].memref.size =  key_len_id_size;
+	params[3].value.a = key_size;
+	memcpy( &gen, g_buffer, 4);
+	params[3].value.b =  gen;
+	//memcpy( key_len_id, &key_size, 4 );
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_VALUE_INPUT), params );	
 
 	/*send respond dh command*/
 	PRIn("Trying to send RESPOND_DH_CMD");

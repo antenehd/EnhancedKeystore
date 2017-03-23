@@ -101,7 +101,7 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_INPUT != TEE_PARAM_TYPE_GET(paramTypes, 1) ){
+		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET(paramTypes, 1) ){
 
 			OT_LOG(LOG_ERR, "For command RESPOND_DH_CMD second parameter type is incorrect");
 			return TEE_ERROR_BAD_PARAMETERS;
@@ -113,7 +113,7 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 
-		if ( TEE_PARAM_TYPE_MEMREF_INOUT != TEE_PARAM_TYPE_GET(paramTypes, 3) ){
+		if ( TEE_PARAM_TYPE_VALUE_INPUT != TEE_PARAM_TYPE_GET(paramTypes, 3) ){
 
 			OT_LOG(LOG_ERR, "For command RESPOND_DH_CMD fourth parameter type is incorrect");
 			return TEE_ERROR_BAD_PARAMETERS;
@@ -439,15 +439,16 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	TEE_ObjectHandle trs_secret_key_store_hdl;		/*Holds the final shared secrete key which is of the requested size*/
 
 	/*retrieve key_len from parameter */
-	TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
+	key_length = params[3].value.a;
+	//TEE_MemMove( &key_length, params[3].memref.buffer, 4 );
 
 	if( SUPPORTED_KEY_LEN != key_length )					
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	/*retrieve generator value*/
-	if( GEN_SIZE != params[1].memref.size )	
-		return TEE_ERROR_BAD_PARAMETERS;
-	TEE_MemMove( generator_received, params[1].memref.buffer, GEN_SIZE );
+	//if( GEN_SIZE != params[1].memref.size )	
+	//	return TEE_ERROR_BAD_PARAMETERS;
+	TEE_MemMove( generator_received, &params[3].value.b, GEN_SIZE );
 
 	/*retrieve public value*/
 	public_received_len = params[0].memref.size;
@@ -493,7 +494,7 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 		return ret;
 
 	/*set key_id into shared memory*/
-	TEE_MemMove( params[3].memref.buffer, key_id, 8 );
+	TEE_MemMove( params[1].memref.buffer, key_id, 8 );
 
 	TEE_FreeTransientObject( trs_pub_key_obj_hdl );
 

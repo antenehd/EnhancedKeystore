@@ -3,6 +3,7 @@ package fi.aalto.mss.enhancedkeystore;
 import android.content.Context;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import fi.aalto.ssg.opentee.ITEEClient;
@@ -169,9 +170,9 @@ public class TAService {
             e.printStackTrace();
         }
 
-        ITEEClient.IValue keySize = client.Value(param_value_flag, 0, KEY_LENGTH);
+        ITEEClient.IValue keyLen_val = client.Value(param_value_flag, 0, KEY_LENGTH);
 
-        ITEEClient.IOperation operation = client.Operation(publicKey_rmr, g_rmr, p_rmr, keySize);
+        ITEEClient.IOperation operation = client.Operation(publicKey_rmr, g_rmr, p_rmr, keyLen_val);
 
         try {
             session.invokeCommand(CMD_INIT_DH, operation);
@@ -235,23 +236,24 @@ public class TAService {
 
         DHExchangeResult dhExchangeResult = null;
         byte[] publicKey_buffer = passedParams.getPublicKey();
-        byte[] g_buffer = passedParams.getGenerator();
         byte[] p_buffer = passedParams.getPrime();
-        byte[] util_buffer = TAServiceUtils.getUtilBuffer(KEY_LENGTH, KEY_ID_BUFFER_SIZE);
+        byte[] keyID_buffer = new byte[KEY_ID_BUFFER_SIZE];
 
         int CMD_RESPOND_DH = 0x00000002;
         final int input_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_INPUT;
         final ITEEClient.IRegisteredMemoryReference.Flag input_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_INPUT;
+        final int output_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_OUTPUT;
+        final ITEEClient.IRegisteredMemoryReference.Flag output_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_OUTPUT;
         final int inout_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_INPUT | ITEEClient.ISharedMemory.TEEC_MEM_OUTPUT;
         final ITEEClient.IRegisteredMemoryReference.Flag inout_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_INOUT;
+        final ITEEClient.IValue.Flag input_val_flag = ITEEClient.IValue.Flag.TEEC_VALUE_INPUT;
         ITEEClient.ISharedMemory publicKey_sm = null;
         ITEEClient.IRegisteredMemoryReference publicKey_rmr = null;
-        ITEEClient.ISharedMemory g_sm = null;
-        ITEEClient.IRegisteredMemoryReference g_rmr = null;
+        ITEEClient.ISharedMemory keyID_sm = null;
+        ITEEClient.IRegisteredMemoryReference keyID_rmr = null;
         ITEEClient.ISharedMemory p_sm = null;
         ITEEClient.IRegisteredMemoryReference p_rmr = null;
-        ITEEClient.ISharedMemory util_sm = null;
-        ITEEClient.IRegisteredMemoryReference util_rmr = null;
+
 
         try {
             publicKey_sm = context.registerSharedMemory(publicKey_buffer, inout_sm_flag);
@@ -279,7 +281,7 @@ public class TAService {
         }
 
         try {
-            g_sm = context.registerSharedMemory(g_buffer, input_sm_flag);
+            keyID_sm = context.registerSharedMemory(keyID_buffer, output_sm_flag);
         } catch (TEEClientException e) {
 
             try {
@@ -298,7 +300,7 @@ public class TAService {
         }
 
         try {
-            g_rmr = client.RegisteredMemoryReference(g_sm, input_rmr_flag, 0);
+            keyID_rmr = client.RegisteredMemoryReference(keyID_sm, output_rmr_flag, 0);
         } catch (BadParametersException e) {
             e.printStackTrace();
         }
@@ -328,32 +330,9 @@ public class TAService {
             e.printStackTrace();
         }
 
-        try {
-            util_sm = context.registerSharedMemory(util_buffer, inout_sm_flag);
-        } catch (TEEClientException e) {
+        ITEEClient.IValue keyLen_g_val = client.Value(input_val_flag, KEY_LENGTH, passedParams.getGenerator());
 
-            try {
-                session.closeSession();
-            } catch (TEEClientException e1) {
-                e1.printStackTrace();
-            }
-
-
-            try {
-                context.finalizeContext();
-            } catch (TEEClientException e1) {
-                e1.printStackTrace();
-            }
-
-        }
-
-        try {
-            util_rmr = client.RegisteredMemoryReference(util_sm, inout_rmr_flag, 0);
-        } catch (BadParametersException e) {
-            e.printStackTrace();
-        }
-
-        ITEEClient.IOperation operation = client.Operation(publicKey_rmr, g_rmr, p_rmr, util_rmr);
+        ITEEClient.IOperation operation = client.Operation(publicKey_rmr, keyID_rmr, p_rmr, keyLen_g_val);
 
         try {
             session.invokeCommand(CMD_RESPOND_DH, operation);
@@ -370,10 +349,10 @@ public class TAService {
             publicKey = Arrays.copyOf(publicKey_buffer, publicKey_rmr.getReturnSize());
         }
 
-        if(util_buffer.length < util_rmr.getReturnSize()){
+        if(keyID_buffer.length < keyID_rmr.getReturnSize()){
             Log.e(TAG, "respondDHExchange: incorrect size of returned shared memory util");
         }else{
-            keyID = Arrays.copyOf(util_buffer, util_rmr.getReturnSize());
+            keyID = Arrays.copyOf(keyID_buffer, keyID_rmr.getReturnSize());
         }
 
         if (publicKey != null && keyID != null) {
@@ -390,19 +369,13 @@ public class TAService {
         }
 
         try {
-            context.releaseSharedMemory(g_sm);
-        } catch (TEEClientException e) {
-            e.printStackTrace();
-        }
-
-        try {
             context.releaseSharedMemory(p_sm);
         } catch (TEEClientException e) {
             e.printStackTrace();
         }
 
         try {
-            context.releaseSharedMemory(util_sm);
+            context.releaseSharedMemory(keyID_sm);
         } catch (TEEClientException e) {
             e.printStackTrace();
         }

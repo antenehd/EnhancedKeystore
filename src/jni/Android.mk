@@ -33,7 +33,7 @@ LOCAL_C_INCLUDES := \
 	/home/max/Open-TEE/emulator/include \
 	/home/max/Open-TEE/TAs/include
 
-LOCAL_CFLAGS := -DANDROID -g -O0 -DTA_PLUGIN
+LOCAL_CFLAGS := -DANDROID -g -O0 -DTA_PLUGIN -DOT_LOGGING
 
 LOCAL_SHARED_LIBRARIES := libc libdl libInternalApi libcrypto_test libstorage_test 
 LOCAL_LDLIBS := -llog

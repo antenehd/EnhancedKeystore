@@ -1,5 +1,5 @@
 .*
 *~
 !/.gitignore
-*.so
-src/obj/**
+src/obj/*
+src/libs/*

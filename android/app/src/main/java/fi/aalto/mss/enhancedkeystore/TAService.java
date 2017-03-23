@@ -26,6 +26,7 @@ public class TAService {
     private static final int PUBLIC_KEY_BUFFER_SIZE = 256;
     private static final int P_BUFFER_SIZE = 256;
     private static final int KEY_ID_BUFFER_SIZE = 8;
+    private static final int INIT_VECTOR_BUFFER_SIZE = 16;
 
 
     public static synchronized boolean initEnhancedKeystoreTA(Context context, WorkerCallback callback) {
@@ -493,6 +494,182 @@ public class TAService {
         }
 
         return dhExchangeResult;
+    }
+
+    public static synchronized byte[] encryptData(ITEEClient client, ITEEClient.IContext context, ITEEClient.ISession session, byte[] keyID) {
+        if (session == null || client == null || context == null || keyID == null) return null;
+
+        byte[] plain_buffer = "fi.aalto.mss.enhancedkeystore".getBytes();
+        Log.d(TAG, "encryptData: " + plain_buffer + "   length: " + plain_buffer.length );
+        byte[] cipher_buffer = new byte[plain_buffer.length];
+        byte[] initVector_buffer = new byte[INIT_VECTOR_BUFFER_SIZE];
+
+        int CMD_ENCRYPT_AES = 0x00000004;
+        final int input_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_INPUT;
+        final ITEEClient.IRegisteredMemoryReference.Flag input_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_INPUT;
+        final int output_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_OUTPUT;
+        final ITEEClient.IRegisteredMemoryReference.Flag output_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_OUTPUT;
+        ITEEClient.ISharedMemory plain_sm = null;
+        ITEEClient.IRegisteredMemoryReference plain_rmr = null;
+        ITEEClient.ISharedMemory cipher_sm = null;
+        ITEEClient.IRegisteredMemoryReference cipher_rmr = null;
+        ITEEClient.ISharedMemory initVector_sm = null;
+        ITEEClient.IRegisteredMemoryReference initVector_rmr = null;
+        ITEEClient.ISharedMemory keyID_sm = null;
+        ITEEClient.IRegisteredMemoryReference keyID_rmr = null;
+
+        try {
+            plain_sm = context.registerSharedMemory(plain_buffer, input_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            plain_rmr = client.RegisteredMemoryReference(plain_sm, input_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            cipher_sm = context.registerSharedMemory(cipher_buffer, output_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            cipher_rmr = client.RegisteredMemoryReference(cipher_sm, output_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            initVector_sm = context.registerSharedMemory(initVector_buffer, output_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            initVector_rmr = client.RegisteredMemoryReference(initVector_sm, output_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            keyID_sm = context.registerSharedMemory(keyID, input_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            keyID_rmr = client.RegisteredMemoryReference(keyID_sm, input_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        ITEEClient.IOperation operation = client.Operation(plain_rmr, cipher_rmr, initVector_rmr, keyID_rmr);
+
+        try {
+            session.invokeCommand(CMD_ENCRYPT_AES, operation);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        byte[] cipher = null;
+        byte[] initVector = null;
+
+        if(cipher_buffer.length < cipher_rmr.getReturnSize()){
+            Log.e(TAG, "encryptData: incorrect size of returned shared memory cipher");
+        }else{
+            cipher = Arrays.copyOf(cipher_buffer, cipher_rmr.getReturnSize());
+        }
+
+        if(initVector_buffer.length < initVector_rmr.getReturnSize()){
+            Log.e(TAG, "encryptData: incorrect size of returned shared memory initVector");
+        }else{
+            initVector = Arrays.copyOf(initVector_buffer, initVector_rmr.getReturnSize());
+        }
+
+        if (cipher == null || initVector == null) {
+            Log.e(TAG, "encryptData: could not get results");
+        }
+
+        try {
+            context.releaseSharedMemory(plain_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            context.releaseSharedMemory(cipher_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            context.releaseSharedMemory(initVector_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            context.releaseSharedMemory(keyID_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        return cipher;
     }
 
     public static synchronized void finalizeEnhancedKeystoreTA (ITEEClient.IContext ctx, ITEEClient.ISession session){

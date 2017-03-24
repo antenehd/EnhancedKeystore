@@ -1,0 +1,4 @@
+#Fri Mar 24 00:07:45 EET 2017
+base.0=/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/transforms/dex/debug/folders/1000/5/slice_5
+renamed.0=classes.dex
+file.0=/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/transforms/dex/debug/folders/1000/5/slice_5/classes.dex

@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/layout-v21/notification_action_tombstone.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/layout-v21/notification_action_tombstone.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/layout-v21/notification_template_custom_big.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/layout-v21/notification_template_custom_big.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/layout-v21/notification_action.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/layout-v21/notification_action.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/layout-v21/notification_template_icon_group.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/layout-v21/notification_template_icon_group.xml"
+    }
+]

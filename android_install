@@ -24,7 +24,7 @@
      with the correct device architecter used. 
      To copy use 'adb' command. (the device should be rooted for this to work)
  
-         $adb push libeks_ta_so /system/lib/ta
+         $adb push libeks_ta.so /system/lib/ta
 
     - If the command fails b/c the destination is write protected, try runnin 'adb remount' before running the above command.
 

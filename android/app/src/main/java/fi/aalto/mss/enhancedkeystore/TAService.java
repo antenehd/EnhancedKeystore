@@ -37,8 +37,11 @@ public class TAService {
         ITEEClient.IContext ctx = null;
 
         try {
+            Log.d(TAG, "TaService: init context");
             ctx = client.initializeContext(null, context);
+
         } catch (TEEClientException e) {
+            Log.d(TAG, "TaService: init context failed");
             e.printStackTrace();
         }
 
@@ -54,12 +57,13 @@ public class TAService {
 
         ITEEClient.ISession session = null;
         try {
+            Log.d(TAG, "TaService: openseession");
             session = ctx.openSession(TAServiceUtils.getUUID(),
                     ITEEClient.IContext.ConnectionMethod.LoginPublic,
                     null,
                     null);
         } catch (TEEClientException e) {
-
+            Log.d(TAG, "TaService: opensession failed");
             try {
                 ctx.finalizeContext();
             } catch (TEEClientException e1) {
@@ -181,7 +185,6 @@ public class TAService {
             e.printStackTrace();
             return params;
         }
-
         byte[] publicKey = null;
         byte[] g = null;
         byte[] p = null;

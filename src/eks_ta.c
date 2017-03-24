@@ -2,12 +2,14 @@
 #include "tee_internal_api.h"
 #include "tee_logging.h"
 #include "tee_ta_properties.h"
+//#include "android/log.h"
 
 #define INITIATE_DH_CMD 	   0x00000001
 #define RESPOND_DH_CMD  	   0x00000002
 #define COMPLETE_DH_CMD 	   0x00000003
 #define ENCRYPT_AES_CMD		   0x00000004
 #define DECRYPT_AES_CMD		   0x00000005
+#define HASH_OF_KEY_CMD		   0x00000006   //used to just to check if the generated key is similar on both devices
 #define GEN_SIZE		   4
 #define PRIME_SIZE	           256
 #define SUPPORTED_KEY_LEN	   256
@@ -18,6 +20,8 @@
 #define BUFFER_DECRYPTED_SIZE	   AES_BLOCK_SIZE * 16
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
+#define MD5_HASH_LEN		   16
+//#define ADR_LOG( ... ) __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", __VA_ARGS__)
 
 uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
 
@@ -60,6 +64,11 @@ TEE_ObjectHandle trs_pub_key_obj_hdl;
 
 /*Length of the sysmmetric secret key(in bits) to be generated*/
 uint32_t key_length;
+
+/*To make sure only one INITIATE_DH_CMD, RESPOND_DH_CMD, COMPLETE_DH_CMD command is processed per session */
+int check_init_invoked = 0;
+int check_respond_invoked = 0;
+int check_comp_invoked = 0;
 
 static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id )
 {
@@ -201,6 +210,33 @@ static TEE_Result validate_param_type( uint32_t paramTypes, uint32_t command_id 
 			return TEE_ERROR_BAD_PARAMETERS;
 		}
 	}
+	/* Check parameter type if command is HASH_OF_KEY_CMD*/
+	else if( HASH_OF_KEY_CMD == command_id ){
+
+		if ( TEE_PARAM_TYPE_MEMREF_INPUT != TEE_PARAM_TYPE_GET( paramTypes, 0 ) ){
+
+			OT_LOG( LOG_ERR, "For command HASH_OF_KEY_CMD first parameter type is incorrect" );
+			return TEE_ERROR_BAD_PARAMETERS;
+		}
+
+		if ( TEE_PARAM_TYPE_MEMREF_OUTPUT != TEE_PARAM_TYPE_GET( paramTypes, 1 ) ){
+
+			OT_LOG( LOG_ERR, "For command HASH_OF_KEY_CMD second parameter type is incorrect" );
+			return TEE_ERROR_BAD_PARAMETERS;
+		}
+
+		if ( TEE_PARAM_TYPE_NONE != TEE_PARAM_TYPE_GET(paramTypes, 2 ) ){
+
+			OT_LOG( LOG_ERR, "For command HASH_OF_KEY_CMD third parameter type is incorrect" );
+			return TEE_ERROR_BAD_PARAMETERS;
+		}
+
+		if ( TEE_PARAM_TYPE_NONE != TEE_PARAM_TYPE_GET(paramTypes, 2 ) ){
+
+			OT_LOG( LOG_ERR, "For command HASH_OF_KEY_CMD fourth parameter type is incorrect" );
+			return TEE_ERROR_BAD_PARAMETERS;
+		}
+	}
 
 	return TEE_SUCCESS;
 }
@@ -334,11 +370,39 @@ TEE_Result generate_shared_secret( TEE_ObjectHandle *trs_secret_key_obj_hdl, uin
 		return ret;
 }
 
+/*Used to hash the secrete key to show both devices have the same key by showing the hash of the secrete key*/
+TEE_Result md5_hash_secret_key( TEE_ObjectHandle trs_source, uint8_t hashed_value[ MD5_HASH_LEN ], uint32_t *hash_len ){
+
+	uint8_t sec_key[ SUPPORTED_KEY_LEN ] = { 0 };
+	uint32_t sec_key_len = SUPPORTED_KEY_LEN;
+	TEE_OperationHandle operation;
+	TEE_Result ret;
+
+	if( ( NULL == trs_source ) || ( NULL == hash_len ) )
+		return TEE_ERROR_BAD_PARAMETERS;
+
+	ret = TEE_AllocateOperation( &operation, TEE_ALG_MD5, TEE_MODE_DIGEST, 0 );
+	if( TEE_SUCCESS != ret )
+		return ret;
+	
+	/*extract secret key from transient object*/
+	ret = TEE_GetObjectBufferAttribute( trs_source, TEE_ATTR_SECRET_VALUE, sec_key, &sec_key_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	ret = TEE_DigestDoFinal( operation, sec_key, sec_key_len, hashed_value, hash_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	TEE_FreeOperation( operation );
+
+	return TEE_SUCCESS;
+}
+
+
 /*Extracts a shared secret key from transient object 'trs_source' and hash it to a length of 'key_length' and set the resulting hash in to uninitialized transient object 'trs_store'*/
 TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, TEE_ObjectHandle *trs_store ){
 
-	uint8_t shared_key_received[ PRIME_SIZE ] = { 0 };
-	uint32_t shared_key_rec_len = PRIME_SIZE;
 	uint8_t hash[ MAX_KEY_LEN_SUPP / 8 ] = { 0 };
 	uint32_t hash_len = key_length / 8;	
 	uint8_t shared_key[ PRIME_SIZE ] = { 0 };
@@ -362,7 +426,10 @@ TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, 
 	if( TEE_SUCCESS != ret )
 		return ret;
 
-	ret = TEE_DigestDoFinal( operation, shared_key_received, shared_key_rec_len, hash, &hash_len );
+	/*hash shared key*/
+	ret = TEE_DigestDoFinal( operation, shared_key, shared_key_len, hash, &hash_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
 
 	/*allocated a transient object to store the hash (shared secret key)*/
 	/*Create transient object to hold the shared secret key*/
@@ -436,7 +503,7 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	uint32_t pb_len = PRIME_SIZE;
 
 	TEE_ObjectHandle trs_secret_key_obj_hdl;	/*Holds a 2048 bit intermediate shared secrete key*/
-	TEE_ObjectHandle trs_secret_key_store_hdl;		/*Holds the final shared secrete key which is of the requested size*/
+	TEE_ObjectHandle trs_secret_key_store_hdl;	/*Holds the final shared secrete key which is of the requested size*/
 
 	/*retrieve key_len from parameter */
 	key_length = params[3].value.a;
@@ -452,17 +519,22 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 
 	/*retrieve public value*/
 	public_received_len = params[0].memref.size;
+	if(  PRIME_SIZE != public_received_len ){
+
+		OT_LOG(LOG_INFO, " public value size should be 2048 bits.\n" );
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
 	TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );		
 
 	/*retrieve prime value*/
 	prime_received_len = params[2].memref.size;
-	TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
 	if(  PRIME_SIZE != prime_received_len ){
 
-		OT_LOG(LOG_INFO, " Prime size not supported. Only 2048 bit prime supported.\n" );
+		OT_LOG(LOG_INFO, " Prime size should be 2048 bits.\n" );
 		return TEE_ERROR_BAD_PARAMETERS;
 	}
-
+	TEE_MemMove( prime_received, params[2].memref.buffer, prime_received_len );
+	
 	/*create transient object for DH*/
 	ret = TEE_AllocateTransientObject( TEE_TYPE_DH_KEYPAIR, PRIME_SIZE * 8, &trs_pub_key_obj_hdl );
 	if( TEE_SUCCESS != ret )
@@ -485,7 +557,7 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	if( TEE_SUCCESS != ret )
 		return ret;
 
-	/*Hash the 2048 bit generated shared secret key to generate a shared secret key of the requested length*/
+	/*Hash the 2048 bit generated shared secret key to generate a shared secret key of length 256 bit*/
 	ret = hash_shared_key( &trs_secret_key_obj_hdl, key_length, &trs_secret_key_store_hdl );
 
 	/*Create a persistent object and store the shared secret key*/
@@ -513,7 +585,9 @@ TEE_Result  complete_cmd( TEE_Param params[4] ){
 	TEE_ObjectHandle trs_secret_key_store_hdl;	/*Holds the final shared secrete key which is of the requested size*/
 
 	/*Retrieve public value*/
-	public_received_len = params[0].memref.size;
+	if( PRIME_SIZE != ( public_received_len = params[0].memref.size ) )
+		return TEE_ERROR_BAD_PARAMETERS;
+	
 	TEE_MemMove( public_value_received, params[0].memref.buffer, public_received_len );
 
 	/*Generate 2048 bit shared secret key*/
@@ -550,12 +624,32 @@ TEE_Result  encrypt( TEE_Param params[4] ){
 	uint8_t initial_counter_value[ AES_BLOCK_SIZE ] = { 0 };
 	uint8_t random_value[ RAND_VALUE_LEN ] = { 0 };
 	uint32_t plain_text_size;
-	uint32_t encrypted_size;
+	uint32_t encrypted_size = BUFFER_ENCRYPTED_SIZE;
 	uint32_t copy_size;
 	uint32_t index = 0;
 
 	/*Retrieve key id*/
 	TEE_MemMove( key_id, params[3].memref.buffer, KEY_ID_SIZE );
+
+	/*check encrypt buffer*/
+	if ( 0 == params[0].memref.size ) {
+
+		OT_LOG(LOG_ERR, "Input buffer too short");
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
+	/* If output buffer is big enough. If not, return TEE_ERROR_SHORT_BUFFER and required size*/
+	if (params[1].memref.size < params[0].memref.size) {
+
+		OT_LOG(LOG_ERR, "Output buffer too short");
+		params[1].memref.size =  params[0].memref.size;
+		return TEE_ERROR_SHORT_BUFFER;
+	}
+	if ( AES_BLOCK_SIZE > params[2].memref.size) {
+
+		OT_LOG(LOG_ERR, "Output buffer too short");
+		params[2].memref.size =  AES_BLOCK_SIZE;
+		return TEE_ERROR_SHORT_BUFFER;
+	}
 
 	/*open persistent object containing the syymetric key*/
 	ret = TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
@@ -634,13 +728,27 @@ TEE_Result  decrypt( TEE_Param params[4] ){
 	uint8_t buffer_encrypted[ BUFFER_ENCRYPTED_SIZE ] = { 0 };  /* holds up to 'AES_BLOCK_SIZE * 16' bytes of encrypted data, after this much data is decrypted this buffere is coppied to the
 								     the output parameter and the buffer is reset in preparation to hold the next encrypted values*/
 	uint8_t initial_counter_value[ AES_BLOCK_SIZE ] = { 0 };
-	uint32_t decrypted_size;
+	uint32_t decrypted_size = BUFFER_DECRYPTED_SIZE;
 	uint32_t encrypted_size;
 	uint32_t copy_size;
 	uint32_t index = 0;
 
 	/*Retrieve key id*/
 	TEE_MemMove( key_id, params[3].memref.buffer, KEY_ID_SIZE );
+
+	/*check decrypt buffer*/
+	if ( 0 == params[0].memref.size ) {
+
+		OT_LOG(LOG_ERR, "Input buffer too short");
+		return TEE_ERROR_BAD_PARAMETERS;
+	}
+	/* If output buffer is big enough. If not, return TEE_ERROR_SHORT_BUFFER and required size*/
+	if (params[1].memref.size < params[0].memref.size) {
+
+		OT_LOG(LOG_ERR, "Output buffer too short");
+		params[1].memref.size =  params[0].memref.size;
+		return TEE_ERROR_SHORT_BUFFER;
+	}
 
 	/*open persistent object containing the syymetric key*/
 	ret = TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
@@ -701,6 +809,46 @@ TEE_Result  decrypt( TEE_Param params[4] ){
 	return TEE_SUCCESS;			
 }
 
+/*Used to process the decryption of encrypted data sent from CA*/
+TEE_Result  get_hash_of_key( TEE_Param params[4] ){
+
+	TEE_Result ret;
+
+	TEE_ObjectHandle key_obj_hdl;
+	uint8_t hashed_value[ MD5_HASH_LEN ] = {0};
+	uint32_t hash_len = MD5_HASH_LEN;
+	uint8_t key_id[ KEY_ID_SIZE ] = { 0 };
+
+	/*Retrieve key id*/
+	if( KEY_ID_SIZE != params[0].memref.size )
+		return TEE_ERROR_BAD_PARAMETERS;
+	/* check if output buffer is big enough. If not, return TEE_ERROR_SHORT_BUFFER and required size*/
+	if ( MD5_HASH_LEN > params[1].memref.size ) {
+
+		OT_LOG(LOG_ERR, "Output buffer too short");
+		params[1].memref.size =  MD5_HASH_LEN;
+		return TEE_ERROR_SHORT_BUFFER;
+	}
+	TEE_MemMove( key_id, params[0].memref.buffer, KEY_ID_SIZE );
+
+	/*open persistent object containing the syymetric key*/
+	ret = TEE_OpenPersistentObject( TEE_STORAGE_PRIVATE, key_id, KEY_ID_SIZE, TEE_DATA_FLAG_ACCESS_READ, &key_obj_hdl );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	/*hash the secrete key*/
+	ret = md5_hash_secret_key( key_obj_hdl, hashed_value, &hash_len );
+	if( TEE_SUCCESS != ret )
+		return ret;
+
+	TEE_CloseObject( key_obj_hdl );
+
+	/*copy data to parameter 1*/
+	TEE_MemMove( params[1].memref.buffer, hashed_value, MD5_HASH_LEN );
+
+	return TEE_SUCCESS;
+}
+
 /*Entry point when the trusted application instance is created*/
 TEE_Result TA_EXPORT TA_CreateEntryPoint(void){
 	
@@ -736,8 +884,17 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 
 	if( INITIATE_DH_CMD == commandID ){
 
-		OT_LOG(LOG_INFO, "INITIATE_DH_CMD command invoked for EKS_TA");
-		
+		OT_LOG(LOG_INFO, "EKS_TA: INITIATE_DH_CMD command invoked for EKS_TA");
+
+		if( 0 != check_init_invoked ){
+
+			OT_LOG(LOG_INFO, "Only one INITIATE_DH_CMD command per session is allowed");
+			goto error_2;
+		}
+			
+
+		check_init_invoked = 1;
+
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes, INITIATE_DH_CMD );
 		if( TEE_SUCCESS != ret )
@@ -750,7 +907,15 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	} 
 	else if( RESPOND_DH_CMD == commandID ){
 
-		OT_LOG(LOG_INFO, "RESPOND_DH_CMD command invoked for EKS_TA"); 
+		OT_LOG(LOG_INFO, "EKS_TA: RESPOND_DH_CMD command invoked for EKS_TA"); 
+
+		if( 0 != check_respond_invoked ){
+
+			OT_LOG(LOG_INFO, "Only one RESPOND_DH_CMD command per session is allowed");
+			goto error_2;
+		}
+
+		check_respond_invoked = 1;
 
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes,  RESPOND_DH_CMD );
@@ -764,8 +929,16 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	}
 	else if(  COMPLETE_DH_CMD == commandID ){
 
-		OT_LOG(LOG_INFO, "COMPLETE_DH_CMD command invoked for EKS_TA\n");	
+		OT_LOG(LOG_INFO, "EKS_TA: COMPLETE_DH_CMD command invoked for EKS_TA\n");	
+
+		if( 0 != check_comp_invoked ){
+
+			OT_LOG(LOG_INFO, "Only one COMPLETE_DH_CMD command per session is allowed");
+			goto error_2;
+		}
 		
+		check_comp_invoked = 1;
+
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes,  COMPLETE_DH_CMD );
 		if( TEE_SUCCESS != ret )
@@ -782,7 +955,7 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	else if(  ENCRYPT_AES_CMD == commandID ){
 
 
-		OT_LOG(LOG_INFO, "ENCRYPT_AES_CMD command invoked for EKS_TA\n");
+		OT_LOG(LOG_INFO, "EKS_TA: ENCRYPT_AES_CMD command invoked for EKS_TA\n");
 
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes,  ENCRYPT_AES_CMD );
@@ -795,7 +968,7 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	}
 	else if(  DECRYPT_AES_CMD == commandID ){
 	
-		OT_LOG(LOG_INFO, "DECRYPT_AES_CMD command invoked for EKS_TA\n");
+		OT_LOG(LOG_INFO, "EKS_TA: DECRYPT_AES_CMD command invoked\n");
 
 		/*Validate parameter type*/
 		ret = validate_param_type( paramTypes,  DECRYPT_AES_CMD );
@@ -804,6 +977,20 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 	
 		/*process the decryption command received*/
 		ret = decrypt( params );
+		if( TEE_SUCCESS != ret )
+			goto error;	
+	}
+	else if( HASH_OF_KEY_CMD == commandID ){
+	
+		OT_LOG(LOG_INFO, "EKS_TA: HASH_OF_KEY_CMD command invoked\n");
+
+		/*Validate parameter type*/
+		ret = validate_param_type( paramTypes,  HASH_OF_KEY_CMD );
+		if( TEE_SUCCESS != ret )
+			goto error;	
+	
+		/*process the decryption command received*/
+		ret = get_hash_of_key( params );
 		if( TEE_SUCCESS != ret )
 			goto error;	
 	}
@@ -817,4 +1004,7 @@ TEE_Result TA_EXPORT TA_InvokeCommandEntryPoint(void *sessionContext, uint32_t c
 
 	error:
 		return ret;
+
+	error_2: 
+		return TEE_ERROR_BUSY;
 }

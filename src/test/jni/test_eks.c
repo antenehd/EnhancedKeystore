@@ -11,17 +11,19 @@
 #define COMPLETE_DH_CMD    0x00000003
 #define ENCRYPT_AES_CMD    0x00000004
 #define DECRYPT_AES_CMD	   0x00000005
+#define HASH_OF_KEY_CMD    0x00000006   //used to just to check if the generated key is similar on both devices
 
 #define PRIn(str, ...) printf(str "\n", ##__VA_ARGS__);
 #define PRI(str, ...) printf(str, ##__VA_ARGS__);
 
-#define  BUFF_SIZE 256
-#define  g_size   4
+#define  BUFF_SIZE 	256
+#define  g_size  	 4
 
-#define  KEY_LEN_256	256
+#define  KEY_LEN_256	   256
 
-#define  PLAIN_TXT_SIZE 130
-#define AES_BLOCK_SIZE  16
+#define  PLAIN_TXT_SIZE 	110
+#define AES_BLOCK_SIZE  	16
+#define MD5_HASH_LEN		16 
 
 uint8_t gx_buffer[ BUFF_SIZE ] = {0};
 uint8_t g_buffer[ BUFF_SIZE ] = {0};
@@ -51,10 +53,55 @@ static int reg_shared_memory(TEEC_Context *context, TEEC_SharedMemory *reg_shm, 
 	ret = TEEC_RegisterSharedMemory(context, reg_shm);
 	if (ret != TEE_SUCCESS) {
 		PRIn("TEEC_RegisterSharedMemory failed: 0x%x", ret);
-		return 1;
+		return -1;
 	}
 
-	return 0;
+	return 1;
+}
+
+
+void print_hex( char *tag, uint8_t *buffer, uint32_t size){
+
+	int i;
+
+	if( ( NULL == buffer) || ( NULL == tag ) )
+		return;
+	
+	PRI("%s", tag);
+	for( i = 0; i < size; i++)
+		PRI("%02x", buffer[ i ]);
+	PRI("\n");
+}
+
+int get_hash_of_key( TEEC_Session *session, TEEC_Context *context, uint32_t *return_origin, uint8_t hash_key[MD5_HASH_LEN]){
+
+	TEEC_Operation operation = {0};
+	TEEC_Parameter params[4] = {0};
+	TEEC_Result ret;
+	TEEC_SharedMemory key_id = {0};
+	TEEC_SharedMemory hashed = {0};
+
+	/*prepare memory for initiate DH*/
+	reg_shared_memory( context, &key_id, key_len_id, key_len_id_size, TEEC_MEM_INPUT );
+	reg_shared_memory( context, &hashed, hash_key, MD5_HASH_LEN, TEEC_MEM_OUTPUT );	
+
+	/*set operation parameter for initiate DH*/	
+	params[0].memref.parent = &key_id;
+	params[0].memref.size = key_len_id_size;
+	params[1].memref.parent = &hashed;
+	params[1].memref.size = MD5_HASH_LEN;
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_NONE, TEEC_NONE ), params );
+
+	PRIn("Trying to send HASH_OF_KEY_CMD");
+	ret = TEEC_InvokeCommand( session, HASH_OF_KEY_CMD, &operation, return_origin );
+	if (ret != TEEC_SUCCESS) {
+
+		PRIn("TEEC_InvokeCommand for HASH_OF_KEY_CMD failed: 0x%x\n", ret);
+		return -1;
+	}
+	PRIn("HASH_OF_KEY_CMD send");
+
+	return 1;
 }
 
 int send_init( uint32_t key_size, TEEC_Session *session, TEEC_Context *context, uint32_t *return_origin ){
@@ -113,27 +160,35 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	TEEC_SharedMemory k_len_id_inout = {0};
 	TEEC_SharedMemory key_id = {0};
 	TEEC_Parameter params[4] = {0};
-
+	
+	uint8_t hash_key[ MD5_HASH_LEN ] = {0};
 	uint32_t gx_size = BUFF_SIZE;
 	uint32_t p_size = BUFF_SIZE;
+	uint32_t gen;
 
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT  );
-	reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_INPUT );
+	//reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_INPUT );
 	reg_shared_memory( context, &p_out, p_buffer, p_size, TEEC_MEM_INPUT );
-	reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT );
+	//reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT );
+	reg_shared_memory( context, &k_len_id_inout, key_len_id, key_len_id_size, TEEC_MEM_OUTPUT );
 	
 	/*set operation parameter for respond DH*/	
 	params[0].memref.parent = &gx;
 	params[0].memref.size = gx_size;
-	params[1].memref.parent = &g_out;
-	params[1].memref.size = g_size;
+	//params[1].memref.parent = &g_out;
+	//params[1].memref.size = g_size;
+	params[1].memref.parent = &k_len_id_inout;
+	params[1].memref.size = key_len_id_size;
 	params[2].memref.parent = &p_out;
 	params[2].memref.size = p_size;
-	params[3].memref.parent = &k_len_id_inout;
-	params[3].memref.size =  key_len_id_size;
-	memcpy( key_len_id, &key_size, 4 );
-	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE), params );	
+	//params[3].memref.parent = &k_len_id_inout;
+	//params[3].memref.size =  key_len_id_size;
+	params[3].value.a = key_size;
+	memcpy( &gen, g_buffer, 4);
+	params[3].value.b =  gen;
+	//memcpy( key_len_id, &key_size, 4 );
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_VALUE_INPUT), params );	
 
 	/*send respond dh command*/
 	PRIn("Trying to send RESPOND_DH_CMD");
@@ -143,6 +198,12 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 		return -1;
 	}
 	PRIn("RESPOND_DH_CMD sent");
+
+	if( 1 != get_hash_of_key( session, context, return_origin, hash_key) )
+		return -1;
+
+	print_hex( "Hashed key: ", hash_key, MD5_HASH_LEN);
+			
 	return 1;
 }
 
@@ -156,6 +217,7 @@ int send_complet( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	TEEC_SharedMemory key_id = {0};
 	TEEC_Parameter params[4] = {0};
 
+	uint8_t hash_key[ MD5_HASH_LEN ] = {0};
 	uint32_t gx_size = BUFF_SIZE;
 
 	/*prepare memory for initiate DH*/
@@ -178,6 +240,12 @@ int send_complet( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 		return -1;
 	}
 	PRIn("COMPLETE_DH_CMD sent");
+
+	if( 1 != get_hash_of_key( session, context, return_origin, hash_key) )
+		return -1;
+
+	print_hex( "Hashed key: ", hash_key, MD5_HASH_LEN);
+
 	return 1;
 }
 
@@ -286,16 +354,19 @@ int encrypt_data( uint8_t key_size[8], uint8_t *plain_txt, uint8_t *encrypted, u
 	/*send encrypt command*/
 	PRIn("Trying to encrypted plain text");
 	ret = TEEC_InvokeCommand( session, ENCRYPT_AES_CMD, &operation, return_origin);
+
 	if (ret != TEEC_SUCCESS) {
 
 		PRIn("TEEC_InvokeCommand for ENCRYPT_AES_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
+
 	PRIn("Plain text encrypted");
+
 	return 1;
 }
 
-int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypted, uint8_t *initial_vector, uint32_t encry_size, TEEC_Session *session, TEEC_Context *context, uint32_t *return_origin ){
+int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypted_data, uint8_t *initial_vector, uint32_t encry_size, TEEC_Session *session, TEEC_Context *context, uint32_t *return_origin ){
 
 	TEEC_Operation operation = {0};
 	TEEC_Result ret;
@@ -306,7 +377,9 @@ int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypt
 	TEEC_SharedMemory key_id = {0};
 	TEEC_Parameter params[4] = {0};
 
-	if( ( NULL == encrypted_data ) || ( NULL == decrypted ) || ( NULL == initial_vector ) || ( NULL == session ) || ( NULL == context ) || ( NULL == return_origin ) )
+	uint8_t decrypted[ PLAIN_TXT_SIZE ] = { 0 }; 
+
+	if( ( NULL == encrypted_data ) || ( NULL == decrypted_data ) || ( NULL == initial_vector ) || ( NULL == session ) || ( NULL == context ) || ( NULL == return_origin ) )
 		return -1;
 
 	/*prepare memory for initiate DH*/
@@ -325,7 +398,7 @@ int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypt
 	params[3].memref.parent = &key_id;
 	params[3].memref.size =  8;
 
-	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE), params );	
+	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE), params );	
 
 	/*send decrypt command*/
 	PRIn("Trying to decrypted encrypted data");
@@ -335,14 +408,16 @@ int decrypt_data( uint8_t key_size[8], uint8_t *encrypted_data, uint8_t *decrypt
 		PRIn("TEEC_InvokeCommand for DECRYPT_AES_CMD failed: 0x%x\n", ret);
 		return -1;
 	}
-	PRIn("Encrypted data decrypted");
+	PRIn("Encrypted data decrypted %02x %02x", decrypted[0], decrypted[1]);
+	memcpy( decrypted_data, decrypted, PLAIN_TXT_SIZE );
+
 	return 1;
 }
 
 
 int test_encry_decr( uint8_t *plain_txt, uint8_t *decrypted, uint32_t size){
 
-	int i, j;
+	int i;
 
 	PRIn("\nTesting Encryption Decryption operation");	
 	if( ( NULL == plain_txt ) || ( NULL == decrypted ) )
@@ -352,7 +427,7 @@ int test_encry_decr( uint8_t *plain_txt, uint8_t *decrypted, uint32_t size){
 
 		if( plain_txt[ i ] != decrypted[ i ] ){
 
-			PRIn("Encryption Decryption test failed.");	
+			PRIn("Encryption Decryption test failed. %02x %02x  %d", plain_txt[ i ], decrypted[ i+1 ], i);	
 			return -1;
 		}
 	}
@@ -375,7 +450,7 @@ static int test_eks()
 	TEEC_Operation operation = {0};
 	TEEC_Operation operation_2 = {0};
 
-	uint8_t plain_txt[ PLAIN_TXT_SIZE ] = { 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5' };
+	uint8_t plain_txt[ PLAIN_TXT_SIZE ] = { 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5', 'a', 'b', 'c', 'd', 'e', '1', '2', '3', '4', '5' };
 
 	uint8_t encrypted[ PLAIN_TXT_SIZE ] = { 0 }; 
 	uint8_t decrypted[ PLAIN_TXT_SIZE ] = { 0 }; 
@@ -411,6 +486,12 @@ static int test_eks()
 		
 		PRIn( "Failed to send init command " );
 		return -1;
+	}
+
+	/*Send init command*/
+	if ( -1 == send_init( key_size, &session, &context, &return_origin ) ){
+		
+		PRIn( "Success : trying to send additional init in the same session failed. " );
 	}
 
 	/*check init return*/
@@ -501,7 +582,7 @@ static int test_eks()
 	if( -1 == test_encry_decr( plain_txt, decrypted, PLAIN_TXT_SIZE) )
 		PRIn("Test for encryption and decryption failed.");
 
-	return 0;
+	return 1;
 }
 
 int main(){

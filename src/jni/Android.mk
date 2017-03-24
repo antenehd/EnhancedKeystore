@@ -30,8 +30,8 @@ LOCAL_MODULE        :=  eks_ta
 LOCAL_SRC_FILES	    :=  eks_ta.c
 
 LOCAL_C_INCLUDES := \
-	/home/max/Open-TEE/emulator/include \
-	/home/max/Open-TEE/TAs/include
+	/home/andro/Open-TEE/emulator/include \
+	/home/andro/Open-TEE/TAs/include
 
 LOCAL_CFLAGS := -DANDROID -g -O0 -DTA_PLUGIN -DOT_LOGGING
 

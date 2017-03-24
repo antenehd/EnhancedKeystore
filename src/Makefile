@@ -1,6 +1,6 @@
 CC = gcc 
 FLAGS = -fPIC -Wall
-HEADER = -I /home/max/Open-TEE/emulator/include -I /home/max/Open-TEE/TAs/include
+HEADER = -I /home/andro/Open-TEE/emulator/include -I /home/andro/Open-TEE/TAs/include
 TARGET_LIB = libeks_ta.so
 DEBUG = -D TA_PLUGIN -D OT_LOGGING
 

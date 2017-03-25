@@ -25,6 +25,7 @@ public interface Constants {
     public static final String DH_RESULT = "dh_result";
     public static final String CIPHER_TEXT = "cipher_text";
     public static final String KEY_HANDLE = "key_handle";
+    public static final String KEY_HASH = "key_hash";
 
     // Message types for key exchange messages
     public static final int INIT_MESSAGE = 11;

@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable-v21/abc_btn_colored_material.xml",
+        "source": "/home/andro/.android/build-cache/ae65b82b58e220a44e788d0b1462b9286314f699/output/res/drawable-v21/abc_btn_colored_material.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable-v21/abc_action_bar_item_background_material.xml",
+        "source": "/home/andro/.android/build-cache/ae65b82b58e220a44e788d0b1462b9286314f699/output/res/drawable-v21/abc_action_bar_item_background_material.xml"
+    }
+]

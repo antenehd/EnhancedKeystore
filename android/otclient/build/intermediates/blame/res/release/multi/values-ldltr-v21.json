@@ -1,0 +1,26 @@
+[
+    {
+        "outputFile": "/home/andro/ks/EnhancedKeystore/android/otclient/build/intermediates/incremental/mergeReleaseResources/merged.dir/values-ldltr-v21/values-ldltr-v21.xml",
+        "map": [
+            {
+                "to": {
+                    "startLine": 2,
+                    "startColumn": 4,
+                    "startOffset": 55,
+                    "endColumn": 112,
+                    "endOffset": 163
+                },
+                "from": {
+                    "file": "/home/andro/.android/build-cache/ae65b82b58e220a44e788d0b1462b9286314f699/output/res/values-ldltr-v21/values-ldltr-v21.xml",
+                    "position": {
+                        "startLine": 4,
+                        "startColumn": 4,
+                        "startOffset": 240,
+                        "endColumn": 112,
+                        "endOffset": 348
+                    }
+                }
+            }
+        ]
+    }
+]

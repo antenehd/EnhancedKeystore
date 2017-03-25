@@ -389,7 +389,11 @@ TEE_Result md5_hash_secret_key( TEE_ObjectHandle trs_source, uint8_t hashed_valu
 	ret = TEE_GetObjectBufferAttribute( trs_source, TEE_ATTR_SECRET_VALUE, sec_key, &sec_key_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
+<<<<<<< HEAD
 OT_LOG(LOG_INFO, " SECR: %02x%02x%02x%02x",  sec_key[0], sec_key[1], sec_key[sec_key_len -2], sec_key[sec_key_len-1]);
+=======
+
+>>>>>>> master
 	ret = TEE_DigestDoFinal( operation, sec_key, sec_key_len, hashed_value, hash_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
@@ -425,12 +429,19 @@ TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, 
 	ret = TEE_GetObjectBufferAttribute( *trs_source, TEE_ATTR_SECRET_VALUE, shared_key, &shared_key_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
+<<<<<<< HEAD
 OT_LOG(LOG_INFO, " shared key: %02x%02x%02x%02x",  shared_key[0], shared_key[1], shared_key[shared_key_len -2], shared_key[shared_key_len-1]);
+=======
+
+>>>>>>> master
 	/*hash shared key*/
 	ret = TEE_DigestDoFinal( operation, shared_key, shared_key_len, hash, &hash_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
+<<<<<<< HEAD
 OT_LOG(LOG_INFO, " hashed key: %02x%02x%02x%02x",  hash[0], hash[1], hash[hash_len -2], hash[hash_len-1]);
+=======
+>>>>>>> master
 
 	/*allocated a transient object to store the hash (shared secret key)*/
 	/*Create transient object to hold the shared secret key*/

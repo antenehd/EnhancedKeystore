@@ -1,6 +1,6 @@
 /*
  * This file is auto-generated.  DO NOT MODIFY.
- * Original file: /home/andro/ks/EnhancedKeystore/android/otclient/src/main/aidl/fi/aalto/ssg/opentee/IOTConnectionInterface.aidl
+ * Original file: /home/max/EnhancedKeystore/android/otclient/src/main/aidl/fi/aalto/ssg/opentee/IOTConnectionInterface.aidl
  */
 package fi.aalto.ssg.opentee;
 public interface IOTConnectionInterface extends android.os.IInterface

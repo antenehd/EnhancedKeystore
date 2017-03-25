@@ -1,10 +1,18 @@
 [
     {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/color-v11/abc_background_cache_hint_selector_material_light.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/color-v11/abc_background_cache_hint_selector_material_light.xml"
+    },
+    {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/color-v11/abc_background_cache_hint_selector_material_light.xml",
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/color-v11/abc_background_cache_hint_selector_material_light.xml"
     },
     {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/color-v11/abc_background_cache_hint_selector_material_dark.xml",
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/color-v11/abc_background_cache_hint_selector_material_dark.xml"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/color-v11/abc_background_cache_hint_selector_material_dark.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/color-v11/abc_background_cache_hint_selector_material_dark.xml"
     }
 ]

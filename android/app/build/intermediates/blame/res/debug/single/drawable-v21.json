@@ -1,7 +1,23 @@
 [
     {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/abc_btn_colored_material.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/drawable-v21/abc_btn_colored_material.xml"
+    },
+    {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/abc_btn_colored_material.xml",
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable-v21/abc_btn_colored_material.xml"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/abc_edit_text_material.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/drawable-v21/abc_edit_text_material.xml"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/abc_action_bar_item_background_material.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/drawable-v21/abc_action_bar_item_background_material.xml"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/notification_action_background.xml",
+        "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/drawable-v21/notification_action_background.xml"
     },
     {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable-v21/abc_edit_text_material.xml",

@@ -6,5 +6,13 @@
     {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/mipmap-xxhdpi/ic_launcher_round.png",
         "source": "/home/andro/ks/EnhancedKeystore/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/mipmap-xxhdpi/ic_launcher_round.png",
+        "source": "/home/max/EnhancedKeystore/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/mipmap-xxhdpi/ic_launcher.png",
+        "source": "/home/max/EnhancedKeystore/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png"
     }
 ]

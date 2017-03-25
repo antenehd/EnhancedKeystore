@@ -107,7 +107,6 @@
 		(output)  params[1].memref.buffer = hash of secret key, size of buffer should be 16 bytes since MD5 algorithm is used
 
 
-		
 # sessionContext would be NULL. The TA design is such that there is one session per instance therefore there is no need to set sessionContext to identify the session with in the instance.
 
 # Key length supported is AES 256. Generator (g) should always be 4 bytes(octets) long and the prime should always be 2048 bit long.

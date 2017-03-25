@@ -23,7 +23,7 @@ include $(PREBUILT_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libstorage_test
 LOCAL_SRC_FILES := libstorage_test.so
-include $(PREBUILT_SHARED_LIBRARY)
+include $(PREBUILT_SHARED_LIBRARY) 
 
 include $(CLEAR_VARS)
 LOCAL_MODULE        :=  eks_ta
@@ -33,7 +33,11 @@ LOCAL_C_INCLUDES := \
 	/home/andro/Open-TEE/emulator/include \
 	/home/andro/Open-TEE/TAs/include
 
+<<<<<<< HEAD
+LOCAL_CFLAGS := -DANDROID -g -O0 -DOT_LOGGING -DTA_PLUGIN
+=======
 LOCAL_CFLAGS := -DANDROID -g -O0 -DTA_PLUGIN -DOT_LOGGING
+>>>>>>> master
 
 LOCAL_SHARED_LIBRARIES := libc libdl libInternalApi libcrypto_test libstorage_test 
 LOCAL_LDLIBS := -llog

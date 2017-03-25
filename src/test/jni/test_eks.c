@@ -85,6 +85,10 @@ int get_hash_of_key( TEEC_Session *session, TEEC_Context *context, uint32_t *ret
 	reg_shared_memory( context, &key_id, key_len_id, key_len_id_size, TEEC_MEM_INPUT );
 	reg_shared_memory( context, &hashed, hash_key, MD5_HASH_LEN, TEEC_MEM_OUTPUT );	
 
+<<<<<<< HEAD
+	print_hex( "In function get_hash_of_key: key_id = ", key_len_id, key_len_id_size);
+=======
+>>>>>>> master
 	/*set operation parameter for initiate DH*/	
 	params[0].memref.parent = &key_id;
 	params[0].memref.size = key_len_id_size;

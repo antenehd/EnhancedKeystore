@@ -1,11 +1,11 @@
 [
     {
-        "merged": "/home/max/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable/abc_text_cursor_material.xml",
-        "source": "/home/max/.android/build-cache/f65ccaebd318b292488c031183be69c614489e5a/output/res/drawable/abc_text_cursor_material.xml"
-    },
-    {
         "merged": "/home/max/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable/abc_cab_background_internal_bg.xml",
         "source": "/home/max/.android/build-cache/f65ccaebd318b292488c031183be69c614489e5a/output/res/drawable/abc_cab_background_internal_bg.xml"
+    },
+    {
+        "merged": "/home/max/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable/abc_text_cursor_material.xml",
+        "source": "/home/max/.android/build-cache/f65ccaebd318b292488c031183be69c614489e5a/output/res/drawable/abc_text_cursor_material.xml"
     },
     {
         "merged": "/home/andro/ks/EnhancedKeystore/android/otclient/build/intermediates/res/merged/androidTest/debug/drawable/abc_cab_background_top_material.xml",

@@ -12,12 +12,12 @@
         "source": "/home/max/.android/build-cache/293e0f1c5a0446db765a665ee4009d00c532dcd5/output/res/drawable/abc_list_selector_holo_light.xml"
     },
     {
-        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/notification_icon_background.xml",
-        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/notification_icon_background.xml"
-    },
-    {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/notification_bg.xml",
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/notification_bg.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/notification_icon_background.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/notification_icon_background.xml"
     },
     {
         "merged": "/home/max/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/abc_seekbar_track_material.xml",
@@ -56,12 +56,12 @@
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/abc_ic_arrow_drop_right_black_24dp.xml"
     },
     {
-        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/abc_btn_check_material.xml",
-        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/abc_btn_check_material.xml"
-    },
-    {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/abc_spinner_textfield_background_material.xml",
         "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/abc_spinner_textfield_background_material.xml"
+    },
+    {
+        "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/abc_btn_check_material.xml",
+        "source": "/home/andro/.android/build-cache/f4639ecf091620642fcae35879ec5be466824e18/output/res/drawable/abc_btn_check_material.xml"
     },
     {
         "merged": "/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/res/merged/debug/drawable/notification_tile_bg.xml",

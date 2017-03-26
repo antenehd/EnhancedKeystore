@@ -1,4 +1,4 @@
-#Fri Mar 24 03:19:26 EET 2017
+#Sun Mar 26 00:56:31 EET 2017
 base.0=/home/andro/ks/EnhancedKeystore/android/app/build/intermediates/transforms/dex/debug/folders/1000/10000/instant-run_f4177e69c21612ce9614ee5ee1c3de619a3b99af
 renamed.1=classes2.dex
 renamed.0=classes.dex

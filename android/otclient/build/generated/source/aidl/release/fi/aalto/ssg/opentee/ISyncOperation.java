@@ -1,6 +1,6 @@
 /*
  * This file is auto-generated.  DO NOT MODIFY.
- * Original file: /home/max/EnhancedKeystore/android/otclient/src/main/aidl/fi/aalto/ssg/opentee/ISyncOperation.aidl
+ * Original file: /home/andro/ks/EnhancedKeystore/android/otclient/src/main/aidl/fi/aalto/ssg/opentee/ISyncOperation.aidl
  */
 package fi.aalto.ssg.opentee;
 // Declare any non-default types here with import statements

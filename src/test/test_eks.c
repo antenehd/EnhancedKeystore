@@ -17,7 +17,7 @@
 #define PRI(str, ...) printf(str, ##__VA_ARGS__);
 
 #define  BUFF_SIZE 	256
-#define  g_size  	 4
+#define  G_SIZE  	 4
 
 #define  KEY_LEN_256	   256
 
@@ -25,8 +25,11 @@
 #define AES_BLOCK_SIZE  	16
 #define MD5_HASH_LEN		16 
 
+#define BIG_ENDN	0x00
+#define LITTLE_ENDN	0x01
+
 uint8_t gx_buffer[ BUFF_SIZE ] = {0};
-uint8_t g_buffer[ BUFF_SIZE ] = {0};
+uint8_t g_buffer[ G_SIZE ] = {0};
 uint8_t p_buffer[ BUFF_SIZE ] = {0};
 uint8_t key_len_id[8] = {0};
 uint32_t key_len_id_size = 8;
@@ -73,6 +76,33 @@ void print_hex( char *tag, uint8_t *buffer, uint32_t size){
 	PRI("\n");
 }
 
+uint8_t check_endian(){
+	
+	uint16_t check_end = 0x0011;
+	uint8_t *p = (uint8_t *) &check_end;
+
+	if( *p == 0x00 )
+		return BIG_ENDN; 
+	
+	return LITTLE_ENDN;
+}
+
+void change_buffer_2_uint32(uint32_t *uint, uint8_t buffer[4]){
+
+	uint8_t tmp_gen_val[4] = {0};
+	int i;
+
+	if( BIG_ENDN == check_endian() )
+		memcpy( uint, buffer, 4 );
+	else{
+		/*Little Endian*/
+
+		for( i=0 ; i<4 ; i++ )
+			tmp_gen_val[ i ] = buffer[ 3 - i ];
+
+		memcpy( uint, tmp_gen_val, 4 );
+	}
+}
 int get_hash_of_key( TEEC_Session *session, TEEC_Context *context, uint32_t *return_origin, uint8_t hash_key[MD5_HASH_LEN]){
 
 	TEEC_Operation operation = {0};
@@ -124,7 +154,7 @@ int send_init( uint32_t key_size, TEEC_Session *session, TEEC_Context *context, 
 	
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT );
-	reg_shared_memory( context, &g_out, g_buffer, g_size, TEEC_MEM_OUTPUT );
+	reg_shared_memory( context, &g_out, g_buffer, G_SIZE, TEEC_MEM_OUTPUT );
 	reg_shared_memory( context, &p_out, p_buffer, p_size, TEEC_MEM_OUTPUT );
 	init_val.b = key_size;	
 	
@@ -132,7 +162,7 @@ int send_init( uint32_t key_size, TEEC_Session *session, TEEC_Context *context, 
 	params[0].memref.parent = &gx;
 	params[0].memref.size = gx_size;
 	params[1].memref.parent = &g_out;
-	params[1].memref.size = g_size;
+	params[1].memref.size = G_SIZE;
 	params[2].memref.parent = &p_out;
 	params[2].memref.size = p_size;
 	params[3].value.b = key_size;
@@ -156,7 +186,6 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	TEEC_Result ret;
 	//TEEC_SharedMemory reg_inout_mem = {0}, alloc_inout_mem = {0};
 	TEEC_SharedMemory gx = {0};
-	TEEC_SharedMemory g_out = {0};
 	TEEC_SharedMemory p_out = {0};	
 	TEEC_SharedMemory k_len_id_inout = {0};
 	TEEC_SharedMemory key_id = {0};
@@ -165,7 +194,7 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	uint8_t hash_key[ MD5_HASH_LEN ] = {0};
 	uint32_t gx_size = BUFF_SIZE;
 	uint32_t p_size = BUFF_SIZE;
-	uint32_t gen;
+	uint32_t gen = 0;
 
 	/*prepare memory for initiate DH*/
 	reg_shared_memory( context, &gx, gx_buffer, gx_size, TEEC_MEM_OUTPUT |TEEC_MEM_INPUT  );
@@ -177,18 +206,14 @@ int send_respond( uint32_t key_size, TEEC_Session *session, TEEC_Context *contex
 	/*set operation parameter for respond DH*/	
 	params[0].memref.parent = &gx;
 	params[0].memref.size = gx_size;
-	//params[1].memref.parent = &g_out;
-	//params[1].memref.size = g_size;
 	params[1].memref.parent = &k_len_id_inout;
 	params[1].memref.size = key_len_id_size;
 	params[2].memref.parent = &p_out;
 	params[2].memref.size = p_size;
-	//params[3].memref.parent = &k_len_id_inout;
-	//params[3].memref.size =  key_len_id_size;
 	params[3].value.a = key_size;
-	memcpy( &gen, g_buffer, 4);
+	change_buffer_2_uint32( &gen, g_buffer);
 	params[3].value.b =  gen;
-	//memcpy( key_len_id, &key_size, 4 );
+		PRIn("Gen value %u", gen);
 	fill_operation_params( &operation, 0, TEEC_PARAM_TYPES( TEEC_MEMREF_WHOLE,TEEC_MEMREF_WHOLE, TEEC_MEMREF_WHOLE, TEEC_VALUE_INPUT), params );	
 
 	/*send respond dh command*/

@@ -126,7 +126,7 @@ public class ExchangeActivity extends AppCompatActivity {
                     break;
 
                 case Constants.MESSAGE_KEY_CONFIRMATION:
-                    showKeyConfirmation(msg.getData().getByteArray(Constants.CIPHER_TEXT));
+                    showKeyConfirmation(msg.getData().getByteArray(Constants.KEY_HASH));
                     break;
             }
         }
@@ -240,7 +240,7 @@ public class ExchangeActivity extends AppCompatActivity {
         Handler workerHandler = mWorker.getHandler();
         Bundle bundle = new Bundle();
         bundle.putByteArray(Constants.KEY_HANDLE, keyHandle);
-        Message workerMsg = workerHandler.obtainMessage(Worker.CMD_DO_ENC);
+        Message workerMsg = workerHandler.obtainMessage(Worker.CMD_GET_KEY_HASH);
         workerMsg.setData(bundle);
         workerHandler.sendMessage(workerMsg);
     }

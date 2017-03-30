@@ -27,6 +27,7 @@ public class TAService {
     private static final int P_BUFFER_SIZE = 256;
     private static final int KEY_ID_BUFFER_SIZE = 8;
     private static final int INIT_VECTOR_BUFFER_SIZE = 16;
+    private static final int KEY_HASH_BUFFER_SIZE = 16;
 
 
     public static synchronized boolean initEnhancedKeystoreTA(Context context, WorkerCallback callback) {
@@ -673,6 +674,101 @@ public class TAService {
         }
 
         return cipher;
+    }
+
+    public static synchronized  byte[] getKeyHash(ITEEClient client, ITEEClient.IContext context, ITEEClient.ISession session, byte[] keyID) {
+
+        byte[] keyHash_buffer = new byte[KEY_HASH_BUFFER_SIZE];
+
+        int CMD_HASH_OF_KEY = 0x00000006;
+        final int input_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_INPUT;
+        final ITEEClient.IRegisteredMemoryReference.Flag input_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_INPUT;
+        final int output_sm_flag = ITEEClient.ISharedMemory.TEEC_MEM_OUTPUT;
+        final ITEEClient.IRegisteredMemoryReference.Flag output_rmr_flag = ITEEClient.IRegisteredMemoryReference.Flag.TEEC_MEMREF_OUTPUT;
+        ITEEClient.ISharedMemory keyID_sm = null;
+        ITEEClient.IRegisteredMemoryReference keyID_rmr = null;
+        ITEEClient.ISharedMemory keyHash_sm = null;
+        ITEEClient.IRegisteredMemoryReference keyHash_rmr = null;
+
+        try {
+            keyID_sm = context.registerSharedMemory(keyID, input_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            keyID_rmr = client.RegisteredMemoryReference(keyID_sm, input_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            keyHash_sm = context.registerSharedMemory(keyHash_buffer, output_sm_flag);
+        } catch (TEEClientException e) {
+
+            try {
+                session.closeSession();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+
+            try {
+                context.finalizeContext();
+            } catch (TEEClientException e1) {
+                e1.printStackTrace();
+            }
+
+        }
+
+        try {
+            keyHash_rmr = client.RegisteredMemoryReference(keyHash_sm, output_rmr_flag, 0);
+        } catch (BadParametersException e) {
+            e.printStackTrace();
+        }
+
+        ITEEClient.IOperation operation = client.Operation(keyID_rmr, keyHash_rmr);
+
+        try {
+            session.invokeCommand(CMD_HASH_OF_KEY, operation);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        byte[] keyHash = null;
+
+        if(keyHash_buffer.length < keyHash_rmr.getReturnSize()){
+            Log.e(TAG, "getKeyHash: incorrect size of returned shared memory keyHash");
+        }else{
+            keyHash = Arrays.copyOf(keyHash_buffer, keyHash_rmr.getReturnSize());
+        }
+
+        try {
+            context.releaseSharedMemory(keyID_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            context.releaseSharedMemory(keyHash_sm);
+        } catch (TEEClientException e) {
+            e.printStackTrace();
+        }
+
+        return keyHash;
     }
 
     public static synchronized void finalizeEnhancedKeystoreTA (ITEEClient.IContext ctx, ITEEClient.ISession session){

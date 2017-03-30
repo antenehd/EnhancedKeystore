@@ -40,6 +40,7 @@ public class Worker extends HandlerThread implements WorkerCallback {
     public final static int CMD_DO_ENC = 5;
     public final static int CMD_DO_DEC = 6;
     public final static int CMD_FINALIZE = 7;
+    public final static int CMD_GET_KEY_HASH = 8;
 
     Handler mUiHandler;
     Context mContext;
@@ -146,21 +147,43 @@ public class Worker extends HandlerThread implements WorkerCallback {
 
                     break;
 
-                case CMD_DO_ENC:
-                    Log.d(TAG, "handleMessage: asked to encrypt");
-
+                case CMD_GET_KEY_HASH:
+                    Log.d(TAG, "handleMessage: asked to get key hash");
                     byte[] keyHandle = msg.getData().getByteArray(Constants.KEY_HANDLE);
-                    byte[] cipherText = TAService.encryptData(client, ctx, session, keyHandle);
+                    byte[] keyHash = TAService.getKeyHash(client, ctx, session, keyHandle);
 
-                    if (cipherText != null) {
-                        Log.d(TAG, "handleMessage: successfully encrypted data");
+                    if (keyHash != null) {
+                        Log.d(TAG, "handleMessage: successfully retrieved key hash");
 
                         Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_KEY_CONFIRMATION);
                         Bundle bundle = new Bundle();
-                        bundle.putByteArray(Constants.CIPHER_TEXT, cipherText);
+                        bundle.putByteArray(Constants.KEY_HASH, keyHash);
+                        uiMsg.setData(bundle);
+                        mUiHandler.sendMessage(uiMsg);
+                    } else {
+                        Log.d(TAG, "handleMessage: getting key hash failed");
+                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_TOAST);
+                        Bundle bundle = new Bundle();
+                        bundle.putString(Constants.TOAST, "Failed to retrieve key hash");
                         uiMsg.setData(bundle);
                         mUiHandler.sendMessage(uiMsg);
                     }
+
+                case CMD_DO_ENC:
+                    Log.d(TAG, "handleMessage: asked to encrypt");
+
+//                    byte[] keyHandle = msg.getData().getByteArray(Constants.KEY_HANDLE);
+//                    byte[] cipherText = TAService.encryptData(client, ctx, session, keyHandle);
+//
+//                    if (cipherText != null) {
+//                        Log.d(TAG, "handleMessage: successfully encrypted data");
+//
+//                        Message uiMsg = mUiHandler.obtainMessage(Constants.MESSAGE_KEY_CONFIRMATION);
+//                        Bundle bundle = new Bundle();
+//                        bundle.putByteArray(Constants.CIPHER_TEXT, cipherText);
+//                        uiMsg.setData(bundle);
+//                        mUiHandler.sendMessage(uiMsg);
+//                    }
 
                     break;
 

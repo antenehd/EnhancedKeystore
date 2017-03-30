@@ -21,6 +21,8 @@
 #define KEY_ID_SIZE		   8
 #define RAND_VALUE_LEN		   8
 #define MD5_HASH_LEN		   16
+#define BIG_ENDN	0x00
+#define LITTLE_ENDN	0x01
 //#define ADR_LOG( ... ) __android_log_print(ANDROID_LOG_ERROR, "EKS_TA_LOG", __VA_ARGS__)
 
 uint8_t gn[ GEN_SIZE ] = { 0x00, 0x00, 0x00, 0x02 };
@@ -389,11 +391,9 @@ TEE_Result md5_hash_secret_key( TEE_ObjectHandle trs_source, uint8_t hashed_valu
 	ret = TEE_GetObjectBufferAttribute( trs_source, TEE_ATTR_SECRET_VALUE, sec_key, &sec_key_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
-<<<<<<< HEAD
-OT_LOG(LOG_INFO, " SECR: %02x%02x%02x%02x",  sec_key[0], sec_key[1], sec_key[sec_key_len -2], sec_key[sec_key_len-1]);
-=======
 
->>>>>>> master
+	OT_LOG(LOG_INFO, " SECR: %02x%02x%02x%02x",  sec_key[0], sec_key[1], sec_key[sec_key_len -2], sec_key[sec_key_len-1]);
+
 	ret = TEE_DigestDoFinal( operation, sec_key, sec_key_len, hashed_value, hash_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
@@ -403,7 +403,32 @@ OT_LOG(LOG_INFO, " SECR: %02x%02x%02x%02x",  sec_key[0], sec_key[1], sec_key[sec
 	return TEE_SUCCESS;
 }
 
+uint8_t check_endian(){
+	
+	uint16_t check_end = 0x0011;
+	uint8_t *p = (uint8_t *) &check_end;
 
+	if( *p == 0x00 )
+		return BIG_ENDN; 
+	
+	return LITTLE_ENDN;
+}
+
+void make_gen_val_big_endian( uint8_t gen_val[4] ){
+
+	uint8_t tmp_gen_val[4] = {0};
+	int i;
+	
+	if( BIG_ENDN == check_endian() )
+		return; 	
+	
+	for( i=0 ; i<4 ; i++ )
+		tmp_gen_val[ i ] = gen_val[ 3 - i ];
+
+	for( i=0 ; i<4 ; i++ )
+		gen_val[ i ] = tmp_gen_val[ i ];	
+	
+}
 /*Extracts a shared secret key from transient object 'trs_source' and hash it to a length of 'key_length' and set the resulting hash in to uninitialized transient object 'trs_store'*/
 TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, TEE_ObjectHandle *trs_store ){
 
@@ -429,19 +454,15 @@ TEE_Result hash_shared_key(  TEE_ObjectHandle *trs_source, uint32_t key_length, 
 	ret = TEE_GetObjectBufferAttribute( *trs_source, TEE_ATTR_SECRET_VALUE, shared_key, &shared_key_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
-<<<<<<< HEAD
-OT_LOG(LOG_INFO, " shared key: %02x%02x%02x%02x",  shared_key[0], shared_key[1], shared_key[shared_key_len -2], shared_key[shared_key_len-1]);
-=======
+	OT_LOG(LOG_INFO, " shared key: %02x%02x%02x%02x",  shared_key[0], shared_key[1], shared_key[shared_key_len -2], shared_key[shared_key_len-1]);
 
->>>>>>> master
 	/*hash shared key*/
 	ret = TEE_DigestDoFinal( operation, shared_key, shared_key_len, hash, &hash_len );
 	if( TEE_SUCCESS != ret )
 		return ret;
-<<<<<<< HEAD
-OT_LOG(LOG_INFO, " hashed key: %02x%02x%02x%02x",  hash[0], hash[1], hash[hash_len -2], hash[hash_len-1]);
-=======
->>>>>>> master
+
+	OT_LOG(LOG_INFO, " hashed key: %02x%02x%02x%02x",  hash[0], hash[1], hash[hash_len -2], hash[hash_len-1]);
+
 
 	/*allocated a transient object to store the hash (shared secret key)*/
 	/*Create transient object to hold the shared secret key*/
@@ -513,7 +534,7 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 	uint32_t public_received_len;
 	uint8_t public_value[ PRIME_SIZE ] = {0};
 	uint32_t pb_len = PRIME_SIZE;
-
+	
 	TEE_ObjectHandle trs_secret_key_obj_hdl;	/*Holds a 2048 bit intermediate shared secrete key*/
 	TEE_ObjectHandle trs_secret_key_store_hdl;	/*Holds the final shared secrete key which is of the requested size*/
 
@@ -525,9 +546,10 @@ TEE_Result  respond_cmd( TEE_Param params[4] ){
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	/*retrieve generator value*/
-	//if( GEN_SIZE != params[1].memref.size )	
-	//	return TEE_ERROR_BAD_PARAMETERS;
 	TEE_MemMove( generator_received, &params[3].value.b, GEN_SIZE );
+
+	/*Check endianess of the system and make sure the generator_received value is in big endian*/
+	make_gen_val_big_endian(generator_received);
 
 	/*retrieve public value*/
 	public_received_len = params[0].memref.size;

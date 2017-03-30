@@ -1,0 +1,15 @@
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name">Enhanced Keystore</string>
+    <string name="paired_devices_title">Known Devices</string>
+    <string name="no_paired_devies">No devices have been paired</string>
+    <string name="key_exchange_title">Key exchange</string>
+    <string name="key_exchange_init_btn">Initiate Key Exchange</string>
+    <string name="key_exchange_connect_btn">Connect to device</string>
+    <string name="key_exchange_bt_status">Connection Status: </string>
+    <string name="key_exchange_bt_status_default">Disconnected</string>
+
+    <string name="title_connecting">connecting...</string>
+    <string name="title_connected_to">connected to <xliff:g id="device_name">%1$s</xliff:g></string>
+    <string name="title_not_connected">not connected</string>
+
+</resources>
